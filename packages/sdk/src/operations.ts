@@ -11,8 +11,7 @@ import {
 import { isWalletAddress } from "./utils/address.js";
 import { getNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 
-import { Leaf } from "@midnames/ns";
-import { MANAGED_DIR } from "@midnames/ns/managed-dir";
+import { Leaf, MANAGED_DIR } from "@midnames/ns";
 import type { Result } from "./results.js";
 import { success, failure } from "./results.js";
 import { NetworkError, InvalidDomainError } from "./errors.js";
