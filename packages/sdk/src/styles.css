@@ -1,0 +1,78 @@
+.midnames-card{border:1px solid rgba(255,255,255,.12);background:transparent;border-radius:12px;padding:12px;max-width:640px}
+
+/* Variant styles */
+.midnames-card-compact{padding:8px;max-width:400px}
+.midnames-card-compact .midnames-header{gap:8px}
+.midnames-card-compact .midnames-avatar{height:48px;width:48px}
+.midnames-card-compact .midnames-name{font-size:16px}
+.midnames-card-compact .midnames-domain{font-size:11px}
+.midnames-card-compact .midnames-bio{font-size:13px}
+.midnames-card-compact .midnames-grid{gap:6px;margin-top:8px}
+.midnames-card-compact .midnames-box{padding:6px}
+
+.midnames-card-inline{display:flex;align-items:center;gap:12px;padding:8px 12px;max-width:none}
+.midnames-card-inline .midnames-header{margin-top:0;flex:1}
+.midnames-card-inline .midnames-banner{display:none}
+.midnames-card-inline .midnames-bio{display:none}
+.midnames-card-inline .midnames-grid{display:none}
+.midnames-card-inline .midnames-links{display:none}
+.midnames-card-inline .midnames-actions{margin-left:auto}
+
+.midnames-card-minimal{padding:6px 8px;max-width:300px}
+.midnames-card-minimal .midnames-header{gap:6px}
+.midnames-card-minimal .midnames-avatar{height:32px;width:32px;font-size:12px}
+.midnames-card-minimal .midnames-name{font-size:14px}
+.midnames-card-minimal .midnames-status{font-size:10px;padding:2px 6px}
+.midnames-card-minimal .midnames-banner{display:none}
+.midnames-card-minimal .midnames-bio{display:none}
+.midnames-card-minimal .midnames-grid{display:none}
+.midnames-card-minimal .midnames-links{display:none}
+
+/* Theme styles */
+.midnames-theme-light{background:rgba(255,255,255,.05);border-color:rgba(0,0,0,.12);color:#000}
+.midnames-theme-dark{background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.12);color:#fff}
+
+/* Border radius styles */
+.midnames-border-none{border-radius:0}
+.midnames-border-sm{border-radius:4px}
+.midnames-border-lg{border-radius:16px}
+
+/* Padding styles */
+.midnames-padding-none{padding:0}
+.midnames-padding-sm{padding:8px}
+.midnames-padding-lg{padding:16px}
+
+/* Actions */
+.midnames-actions{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.12)}
+.midnames-banner{width:100%;height:120px;object-fit:cover;border-radius:8px}
+.midnames-header{display:flex;gap:12px;align-items:center;margin-top:8px}
+.midnames-avatar{height:64px;width:64px;border-radius:9999px;background:rgba(0,170,255,.1);color:#0af;display:flex;align-items:center;justify-content:center;font-weight:600;overflow:hidden}
+.midnames-avatar img{width:100%;height:100%;object-fit:cover}
+.midnames-ident{flex:1 1 auto;min-width:0}
+.midnames-name{font-size:20px;font-weight:600;line-height:1.2}
+.midnames-domain{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;opacity:.7}
+.midnames-status{font-size:12px;border-radius:9999px;padding:4px 8px;border:1px solid rgba(255,255,255,.2)}
+.midnames-status-registered{border-color:#1fbf75;color:#1fbf75}
+.midnames-status-available{border-color:#f0b429;color:#f0b429}
+.midnames-bio{margin:8px 2px 0 2px;font-size:14px;opacity:.85}
+.midnames-grid{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:8px;margin-top:12px}
+@media(min-width:720px){.midnames-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.midnames-box{border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px}
+.midnames-box-label{font-size:11px;opacity:.7}
+.midnames-box-value{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;margin-top:4px}
+.midnames-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.midnames-chip{border:1px solid rgba(255,255,255,.12);border-radius:9999px;padding:6px 10px;font-size:12px;text-decoration:none;color:inherit}
+.midnames-status-error{border-color:#ef4444;color:#ef4444}
+.midnames-error{padding:16px;text-align:center}
+.midnames-error-title{font-size:16px;font-weight:600;color:#ef4444;margin-bottom:8px}
+.midnames-error-message{font-size:14px;opacity:.85;margin-bottom:4px}
+.midnames-error-code{font-size:12px;opacity:.7;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.midnames-copyable{cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.midnames-copy-icon-container{width:16px;display:inline-flex;justify-content:center;align-items:center}
+.midnames-copy-icon{width:12px;height:12px;transition:opacity 0.2s ease}
+.midnames-copy-hover{opacity:.8}
+.midnames-copy-hover:hover{opacity:1}
+.midnames-copy-success{color:#22c55e;opacity:1}
+.midnames-copy-visible{opacity:.8}
+.midnames-copy-invisible{opacity:0}
+

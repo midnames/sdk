@@ -1,0 +1,39 @@
+{
+  "name": "@midnames/ns",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./managed-dir": {
+      "types": "./dist/managed-dir.d.ts",
+      "import": "./dist/managed-dir.js",
+      "require": "./dist/managed-dir.js",
+      "default": "./dist/managed-dir.js"
+    }
+  },
+  "scripts": {
+    "compact": "compact compile +0.30.0 src/leaf.compact src/managed/leaf",
+    "compact:skip-zk": "compact compile +0.30.0 --skip-zk src/leaf.compact src/managed/leaf",
+    "test": "vitest run",
+    "test:compile": "npm run compact && vitest run",
+    "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/leaf.compact ./dist",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "contract": "bun run src/test/contract.ts"
+  },
+  "devDependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.15.0",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.0-rc.2",
+    "dotenv": "^17.3.1"
+  }
+}

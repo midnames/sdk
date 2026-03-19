@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "emitDeclarationOnly": false,
+    "noEmitOnError": true,
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "exclude": ["src/__tests__"]
+}

@@ -1,0 +1,131 @@
+{
+  "name": "@midnames/sdk",
+  "version": "1.0.2",
+  "description": "SDK for Midnames -  Midnight Name Service",
+  "keywords": [
+    "midnight",
+    "nameservice",
+    "dns",
+    "blockchain",
+    "midnames",
+    "widget",
+    "domain",
+    "resolver"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./provider": {
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js",
+      "require": "./dist/provider.js",
+      "default": "./dist/provider.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "require": "./dist/types.js",
+      "default": "./dist/types.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js",
+      "require": "./dist/utils/index.js",
+      "default": "./dist/utils/index.js"
+    },
+    "./utils/domain": {
+      "types": "./dist/utils/domain.d.ts",
+      "import": "./dist/utils/domain.js",
+      "require": "./dist/utils/domain.js",
+      "default": "./dist/utils/domain.js"
+    },
+    "./utils/address": {
+      "types": "./dist/utils/address.d.ts",
+      "import": "./dist/utils/address.js",
+      "require": "./dist/utils/address.js",
+      "default": "./dist/utils/address.js"
+    },
+    "./react/DomainProfileWidget": {
+      "types": "./dist/react/DomainProfileWidget/index.d.ts",
+      "import": "./dist/react/DomainProfileWidget/index.js",
+      "require": "./dist/react/DomainProfileWidget/index.js",
+      "default": "./dist/react/DomainProfileWidget/index.js"
+    },
+    "./react/HolographicCard": {
+      "types": "./dist/react/HolographicCard/index.d.ts",
+      "import": "./dist/react/HolographicCard/index.js",
+      "require": "./dist/react/HolographicCard/index.js",
+      "default": "./dist/react/HolographicCard/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js",
+      "require": "./dist/core.js",
+      "default": "./dist/core.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./holographic-card.css": "./dist/holographic-card.css"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json && cp src/styles.css dist/styles.css && cp src/holographic-card.css dist/holographic-card.css",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@midnames/ns": "workspace:*",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.0-rc.2"
+  },
+  "bundledDependencies": [
+    "@midnames/ns"
+  ],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18",
+    "lucide-react": ">=0.400.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/midnames/sdk.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/midnames/sdk",
+  "bugs": {
+    "url": "https://github.com/midnames/sdk/issues"
+  },
+  "license": "MIT",
+  "author": "Midnames",
+  "devDependencies": {
+    "@midnight-ntwrk/compact-js": "2.5.0-rc.3",
+    "@midnight-ntwrk/midnight-js-contracts": "4.0.0-rc.2",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.0-rc.2",
+    "@midnight-ntwrk/midnight-js-types": "4.0.0-rc.2",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0-rc.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "lucide-react": "0.577.0",
+    "rxjs": "^7.8.1"
+  }
+}
