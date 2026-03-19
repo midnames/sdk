@@ -85,7 +85,7 @@
   },
   "dependencies": {
     "@midnames/ns": "workspace:*",
-    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.0-rc.2"
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.2.1-0-pre.3ce66bd"
   },
   "bundledDependencies": [
     "@midnames/ns"
@@ -118,10 +118,10 @@
   "license": "MIT",
   "author": "Midnames",
   "devDependencies": {
-    "@midnight-ntwrk/compact-js": "2.5.0-rc.3",
-    "@midnight-ntwrk/midnight-js-contracts": "4.0.0-rc.2",
-    "@midnight-ntwrk/midnight-js-network-id": "4.0.0-rc.2",
-    "@midnight-ntwrk/midnight-js-types": "4.0.0-rc.2",
+    "@midnight-ntwrk/compact-js": "2.5.0-rc.1",
+    "@midnight-ntwrk/midnight-js-contracts": "3.2.1-0-pre.3ce66bd",
+    "@midnight-ntwrk/midnight-js-network-id": "3.2.1-0-pre.3ce66bd",
+    "@midnight-ntwrk/midnight-js-types": "3.2.1-0-pre.3ce66bd",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0-rc.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
