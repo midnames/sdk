@@ -1,4 +1,4 @@
-export * as Leaf from "./managed/leaf/contract";
+export * as Leaf from "./managed/leaf/contract/index.js";
 export {
   type DomainData,
   type Either,
@@ -7,7 +7,7 @@ export {
   type Ledger,
   ledger,
   Contract
-} from "./managed/leaf/contract";
+} from "./managed/leaf/contract/index.js";
 export { domainToKey, keyToDomain } from "./utils.js";
 export { witnesses, type DNSPrivateState } from "./witnesses.js";
 export const MANAGED_DIR = new URL("./managed/leaf", import.meta.url).href;

@@ -27,7 +27,6 @@
   },
   "devDependencies": {
     "@midnight-ntwrk/compact-js": "2.5.0-rc.1",
-    "@midnight-ntwrk/compact-runtime": "0.15.0-rc.1",
     "@midnight-ntwrk/midnight-js-contracts": "3.2.1-0-pre.3ce66bd",
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "3.2.1-0-pre.3ce66bd",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.2.1-0-pre.3ce66bd",
@@ -50,6 +49,7 @@
     "ws": "^8.19.0"
   },
   "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.15.0-rc.1",
     "@midnight-ntwrk/ledger-v8": "^8.0.2"
   }
 }

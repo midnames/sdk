@@ -85,7 +85,9 @@
   },
   "dependencies": {
     "@midnames/ns": "workspace:*",
-    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.2.1-0-pre.3ce66bd"
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.2.1-0-pre.3ce66bd",
+    "@midnight-ntwrk/midnight-js-network-id": "3.2.1-0-pre.3ce66bd",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0-rc.0"
   },
   "bundledDependencies": [
     "@midnames/ns"
@@ -120,9 +122,7 @@
   "devDependencies": {
     "@midnight-ntwrk/compact-js": "2.5.0-rc.1",
     "@midnight-ntwrk/midnight-js-contracts": "3.2.1-0-pre.3ce66bd",
-    "@midnight-ntwrk/midnight-js-network-id": "3.2.1-0-pre.3ce66bd",
     "@midnight-ntwrk/midnight-js-types": "3.2.1-0-pre.3ce66bd",
-    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0-rc.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "lucide-react": "0.577.0",
