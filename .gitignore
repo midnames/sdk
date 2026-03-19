@@ -5,6 +5,5 @@ dist/
 midnight-level-db/
 reports/
 *.tsbuildinfo
-bun.lock
 managed/
 example-deploy.config.ts

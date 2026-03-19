@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install Compact toolchain manager
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Compact compiler 0.30.0
+        run: compact update 0.30.0
+
+      - name: Compile contract (skip ZK)
+        run: bun run --filter @midnames/ns compact:skip-zk
+
+      - run: bun run build
+      - run: bun run typecheck
+      - run: bun run test
