@@ -1,6 +1,6 @@
 {
   "name": "@midnames/sdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "SDK for Midnames -  Midnight Name Service",
   "keywords": [
     "midnight",
@@ -85,6 +85,8 @@
   },
   "dependencies": {
     "@midnames/ns": "workspace:*",
+    "@midnight-ntwrk/compact-runtime": "0.15.0-rc.1",
+    "@midnight-ntwrk/ledger-v8": "^8.0.2",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "3.2.1-0-pre.3ce66bd",
     "@midnight-ntwrk/midnight-js-network-id": "3.2.1-0-pre.3ce66bd",
     "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0-rc.0"
