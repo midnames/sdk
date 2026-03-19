@@ -9,3 +9,4 @@ export {
   Contract
 } from "./managed/leaf/contract";
 export { domainToKey, keyToDomain } from "./utils.js";
+export { witnesses, type DNSPrivateState } from "./witnesses.js";
