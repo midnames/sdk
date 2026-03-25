@@ -1,6 +1,6 @@
 {
   "name": "@midnames/sdk",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "SDK for Midnames -  Midnight Name Service",
   "keywords": [
     "midnight",
@@ -86,7 +86,7 @@
     "postpack": "rm -rf node_modules && mv node_modules_bak node_modules"
   },
   "dependencies": {
-    "@midnames/ns": "workspace:*",
+    "@midnames/ns": "0.1.0",
     "@midnight-ntwrk/compact-runtime": "0.15.0",
     "@midnight-ntwrk/ledger-v8": "^8.0.3",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
