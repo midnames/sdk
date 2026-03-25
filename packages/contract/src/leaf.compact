@@ -46,6 +46,9 @@ export ledger DEFAULT_FIELD: Maybe<Opaque<'string'>>;
 
 export ledger BUY_ENABLED: Boolean;
 
+// Commit-reveal for front-run protection on buy_domain_for
+export ledger commitments: Map<Field, Boolean>;
+
 export enum AddressType {
     ContractAddr,
     ZswapCPKAddr,
@@ -139,20 +142,49 @@ export circuit update_target_and_fields(
 
 }
 
-export circuit buy_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
+export circuit commit_domain(commitment: Field): [] {
+    const c = disclose(commitment);
+    assert(!commitments.member(c), "Commitment already exists");
+    commitments.insert(c, true);
+}
+
+export circuit cancel_commitment(
+    domain: Bytes<32>,
+    owner: ZswapCoinPublicKey,
+    rand: Field
+): [] {
+    assert(ownPublicKey() == disclose(owner), "Not the committer");
+    const commitment = transientCommit<[Bytes<32>, ZswapCoinPublicKey]>([disclose(domain), disclose(owner)], disclose(rand));
+    assert(commitments.member(commitment), "Commitment does not exist");
+    commitments.remove(commitment);
+}
+
+export circuit buy_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress, rand: Field): [] {
     assert(len <= 32, "len must be <= 32");
     assert(len >= 1, "domain name cannot be empty");
-    assert(BUY_ENABLED, "buying domains is not enabled")
+    assert(BUY_ENABLED, "buying domains is not enabled");
 
     const valid = fold(
       (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
-        acc && (((i as Uint<32>) < len) || (byte == 255)),
+        acc && (
+          (((i as Uint<32>) < len) &&
+            ((byte >= 97 && byte <= 122) || (byte >= 48 && byte <= 57) || byte == 45) &&
+            !((i as Uint<32>) == 0 && byte == 45) &&
+            !((i as Uint<32>) == (len - 1) && byte == 45)
+          ) ||
+          (((i as Uint<32>) >= len) && (byte == 255))
+        ),
       true, domain,
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
     );
-    assert(valid, "Invalid domain key padding");
+    assert(valid, "Invalid domain name");
 
     assert(!domains.member(disclose(domain)), "Domain already exists");
+
+    // Verify and consume commitment
+    const commitment = transientCommit<[Bytes<32>, ZswapCoinPublicKey]>([disclose(domain), disclose(owner)], disclose(rand));
+    assert(commitments.member(commitment), "No matching commitment");
+    commitments.remove(commitment);
 
     // pricing: shared color, per-tier cost
     const d_len = disclose(len);
@@ -211,11 +243,18 @@ export circuit register_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>,
 
     const valid = fold(
       (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
-        acc && (((i as Uint<32>) < len) || (byte == 255)),
+        acc && (
+          (((i as Uint<32>) < len) &&
+            ((byte >= 97 && byte <= 122) || (byte >= 48 && byte <= 57) || byte == 45) &&
+            !((i as Uint<32>) == 0 && byte == 45) &&
+            !((i as Uint<32>) == (len - 1) && byte == 45)
+          ) ||
+          (((i as Uint<32>) >= len) && (byte == 255))
+        ),
       true, domain,
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
     );
-    assert(valid, "Invalid domain key padding");
+    assert(valid, "Invalid domain name");
 
     assert(!domains.member(disclose(domain)), "Domain already exists");
     assert(DOMAIN_OWNER == ownPublicKey(), "Not the domain owner");

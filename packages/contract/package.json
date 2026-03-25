@@ -23,7 +23,9 @@
     "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/leaf.compact ./dist",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
-    "contract": "bun run src/test/contract.ts"
+    "contract": "bun run src/test/contract.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:e2e:no-up": "E2E_NO_UP=1 vitest run --config vitest.e2e.config.ts"
   },
   "devDependencies": {
     "@midnight-ntwrk/compact-js": "2.5.0",
