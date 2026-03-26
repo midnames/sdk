@@ -18,6 +18,10 @@ function stringToKey(s: string): Uint8Array {
 const dummyOwner = { bytes: new Uint8Array(32) };
 const dummyResolver = { bytes: new Uint8Array(32) };
 
+// ===========================================
+//            Initialization
+// ===========================================
+
 describe("Leaf contract", () => {
   it("generates initial ledger state deterministically", () => {
     const simulator0 = new NSSimulator();
@@ -36,40 +40,47 @@ describe("Leaf contract", () => {
     const simulator = new NSSimulator();
     const ledger = simulator.getLedger();
     expect(ledger.COST_SHORT).toEqual(100n);
+    expect(ledger.COST_MED).toEqual(50n);
+    expect(ledger.COST_LONG).toEqual(10n);
+    expect(ledger.BUY_ENABLED).toBe(true);
     expect(ledger.domains.isEmpty()).toBe(true);
+    expect(ledger.fields.isEmpty()).toBe(true);
   });
 });
+
+// ===========================================
+//      buy_domain_for — basic validation
+// ===========================================
 
 describe("buy_domain_for — validation", () => {
   it("accepts a valid domain purchase with proper padding", () => {
     const simulator = new NSSimulator();
-    // "alice" = [0x61, 0x6c, 0x69, 0x63, 0x65]
     const key = stringToKey("alice");
     expect(() => simulator.buyDomainFor(dummyOwner, key, 5n, dummyResolver)).not.toThrow();
   });
 
   it("accepts len=1 (short premium name)", () => {
     const simulator = new NSSimulator();
-    const key = paddedKey([0x41]);
+    const key = paddedKey([0x61]); // 'a'
     expect(() => simulator.buyDomainFor(dummyOwner, key, 1n, dummyResolver)).not.toThrow();
   });
 
   it("accepts len=32 (max length domain)", () => {
     const simulator = new NSSimulator();
-    const key = new Uint8Array(32).fill(0x41);
+    const key = new Uint8Array(32).fill(0x61); // all 'a'
     expect(() => simulator.buyDomainFor(dummyOwner, key, 32n, dummyResolver)).not.toThrow();
   });
 
   it("rejects non-255 byte in padding region", () => {
     const simulator = new NSSimulator();
-    const key = paddedKey([0x41, 0x42]);
-    key[2] = 0x43; // should be 255
+    const key = paddedKey([0x61, 0x62]); // 'a', 'b'
+    key[2] = 0x63; // should be 255
     expect(() => simulator.buyDomainFor(dummyOwner, key, 2n, dummyResolver)).toThrow();
   });
 
   it("rejects len > 32", () => {
     const simulator = new NSSimulator();
-    const key = new Uint8Array(32).fill(0x41);
+    const key = new Uint8Array(32).fill(0x61);
     expect(() => simulator.buyDomainFor(dummyOwner, key, 33n, dummyResolver)).toThrow();
   });
 
@@ -98,17 +109,20 @@ describe("buy_domain_for — validation", () => {
 
   it("converts string to properly padded Bytes<32>", () => {
     const key = stringToKey("alice");
-    // "alice" = [0x61, 0x6c, 0x69, 0x63, 0x65]
-    expect(key[0]).toBe(0x61);
-    expect(key[1]).toBe(0x6c);
-    expect(key[2]).toBe(0x69);
-    expect(key[3]).toBe(0x63);
-    expect(key[4]).toBe(0x65);
+    expect(key[0]).toBe(0x61); // 'a'
+    expect(key[1]).toBe(0x6c); // 'l'
+    expect(key[2]).toBe(0x69); // 'i'
+    expect(key[3]).toBe(0x63); // 'c'
+    expect(key[4]).toBe(0x65); // 'e'
     for (let i = 5; i < 32; i++) {
       expect(key[i]).toBe(255);
     }
   });
 });
+
+// ===========================================
+//     register_domain_for — validation
+// ===========================================
 
 describe("register_domain_for — validation", () => {
   it("accepts a valid domain registration with proper padding", () => {
@@ -119,7 +133,7 @@ describe("register_domain_for — validation", () => {
 
   it("rejects invalid padding", () => {
     const simulator = new NSSimulator();
-    const key = paddedKey([0x41, 0x42]);
+    const key = paddedKey([0x61, 0x62]); // 'a', 'b'
     key[2] = 0x00; // should be 255
     expect(() => simulator.registerDomainFor(dummyOwner, key, 2n, dummyResolver)).toThrow();
   });
@@ -128,5 +142,225 @@ describe("register_domain_for — validation", () => {
     const simulator = new NSSimulator();
     const key = new Uint8Array(32).fill(255);
     expect(() => simulator.registerDomainFor(dummyOwner, key, 0n, dummyResolver)).toThrow();
+  });
+
+  it("stores domain data correctly after registration", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("test");
+    const ledger = simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    expect(ledger.domains.member(key)).toBe(true);
+    const data = ledger.domains.lookup(key);
+    expect(data.owner).toEqual(dummyOwner);
+    expect(data.resolver).toEqual(dummyResolver);
+  });
+
+  it("rejects duplicate registration", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("test");
+    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    expect(() => simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver)).toThrow();
+  });
+});
+
+// ===========================================
+//          Fields management
+// ===========================================
+
+describe("fields management", () => {
+  it("insert_field adds a field", () => {
+    const simulator = new NSSimulator();
+    const ledger = simulator.insertField("name", "Alice");
+    expect(ledger.fields.member("name")).toBe(true);
+    expect(ledger.fields.lookup("name")).toBe("Alice");
+  });
+
+  it("insert_field overwrites existing field", () => {
+    const simulator = new NSSimulator();
+    simulator.insertField("name", "Alice");
+    const ledger = simulator.insertField("name", "Bob");
+    expect(ledger.fields.lookup("name")).toBe("Bob");
+  });
+
+  it("clear_field removes a field", () => {
+    const simulator = new NSSimulator();
+    simulator.insertField("name", "Alice");
+    const ledger = simulator.clearField("name");
+    expect(ledger.fields.member("name")).toBe(false);
+  });
+
+  it("clear_all_fields removes all fields", () => {
+    const simulator = new NSSimulator();
+    simulator.insertField("name", "Alice");
+    simulator.insertField("bio", "Developer");
+    simulator.insertField("twitter", "@alice");
+    const ledger = simulator.clearAllFields();
+    expect(ledger.fields.isEmpty()).toBe(true);
+  });
+
+  it("add_multiple_fields adds several fields at once", () => {
+    const simulator = new NSSimulator();
+    const kvs = [
+      { is_some: true, value: ["name", "Alice"] as [string, string] },
+      { is_some: true, value: ["bio", "Dev"] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+    ];
+    const ledger = simulator.addMultipleFields(kvs);
+    expect(ledger.fields.member("name")).toBe(true);
+    expect(ledger.fields.lookup("name")).toBe("Alice");
+    expect(ledger.fields.member("bio")).toBe(true);
+    expect(ledger.fields.lookup("bio")).toBe("Dev");
+  });
+});
+
+// ===========================================
+//          Domain management
+// ===========================================
+
+describe("domain management", () => {
+  it("set_resolver updates resolver for existing domain", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("test");
+    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    const newResolver = { bytes: new Uint8Array(32).fill(1) };
+    const ledger = simulator.setResolver(key, newResolver);
+    expect(ledger.domains.lookup(key).resolver).toEqual(newResolver);
+    // Owner should remain unchanged
+    expect(ledger.domains.lookup(key).owner).toEqual(dummyOwner);
+  });
+
+  it("set_resolver fails for non-existent domain", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("nope");
+    expect(() => simulator.setResolver(key, dummyResolver)).toThrow();
+  });
+
+  it("transfer_domain changes owner in domains map", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("test");
+    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    const newOwner = { bytes: new Uint8Array(32).fill(2) };
+    const ledger = simulator.transferDomain(key, newOwner);
+    expect(ledger.domains.lookup(key).owner).toEqual(newOwner);
+    // Resolver should remain unchanged
+    expect(ledger.domains.lookup(key).resolver).toEqual(dummyResolver);
+  });
+
+  it("transfer_domain updates domains_owned tracking", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("test");
+    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    const newOwner = { bytes: new Uint8Array(32).fill(2) };
+    const ledger = simulator.transferDomain(key, newOwner);
+    // New owner should have the domain
+    expect(ledger.domains_owned.member(newOwner)).toBe(true);
+    expect(ledger.domains_owned.lookup(newOwner).member(key)).toBe(true);
+    // Old owner should no longer have it
+    expect(ledger.domains_owned.lookup(dummyOwner).member(key)).toBe(false);
+  });
+
+  it("transfer_domain fails for non-existent domain", () => {
+    const simulator = new NSSimulator();
+    const key = stringToKey("nope");
+    const newOwner = { bytes: new Uint8Array(32).fill(2) };
+    expect(() => simulator.transferDomain(key, newOwner)).toThrow();
+  });
+
+  it("multiple domains can be registered under the same parent", () => {
+    const simulator = new NSSimulator();
+    const key1 = stringToKey("alice");
+    const key2 = stringToKey("bob");
+    simulator.registerDomainFor(dummyOwner, key1, 5n, dummyResolver);
+    const ledger = simulator.registerDomainFor(dummyOwner, key2, 3n, dummyResolver);
+    expect(ledger.domains.member(key1)).toBe(true);
+    expect(ledger.domains.member(key2)).toBe(true);
+    expect(ledger.domains.size()).toBe(2n);
+  });
+});
+
+// ===========================================
+//          Owner operations
+// ===========================================
+
+describe("owner operations", () => {
+  it("change_owner updates DOMAIN_OWNER", () => {
+    const simulator = new NSSimulator();
+    const newOwner = { bytes: new Uint8Array(32).fill(5) };
+    const ledger = simulator.changeOwner(newOwner);
+    expect(ledger.DOMAIN_OWNER).toEqual(newOwner);
+  });
+
+  it("update_color updates COIN_COLOR", () => {
+    const simulator = new NSSimulator();
+    const newColor = new Uint8Array(32).fill(0xab);
+    const ledger = simulator.updateColor(newColor);
+    expect(ledger.COIN_COLOR).toEqual(newColor);
+  });
+
+  it("update_costs updates all cost tiers", () => {
+    const simulator = new NSSimulator();
+    const ledger = simulator.updateCosts(200n, 100n, 20n);
+    expect(ledger.COST_SHORT).toEqual(200n);
+    expect(ledger.COST_MED).toEqual(100n);
+    expect(ledger.COST_LONG).toEqual(20n);
+  });
+
+  it("update_default_field updates DEFAULT_FIELD", () => {
+    const simulator = new NSSimulator();
+    const ledger = simulator.updateDefaultField({ is_some: true, value: "hello" });
+    expect(ledger.DEFAULT_FIELD.is_some).toBe(true);
+    expect(ledger.DEFAULT_FIELD.value).toBe("hello");
+  });
+
+  it("update_domain_target updates DOMAIN_TARGET", () => {
+    const simulator = new NSSimulator();
+    const newTarget = {
+      is_left: true,
+      left: { bytes: new Uint8Array(32).fill(0xcc) },
+      right: {
+        is_left: true,
+        left: { bytes: new Uint8Array(32) },
+        right: { bytes: new Uint8Array(32) }
+      }
+    };
+    const ledger = simulator.updateDomainTarget(newTarget);
+    expect(ledger.DOMAIN_TARGET.is_left).toBe(true);
+    expect(ledger.DOMAIN_TARGET.left).toEqual({ bytes: new Uint8Array(32).fill(0xcc) });
+  });
+
+  it("update_target_and_fields updates target and adds fields atomically", () => {
+    const simulator = new NSSimulator();
+    const newTarget = {
+      is_left: true,
+      left: { bytes: new Uint8Array(32).fill(0xdd) },
+      right: {
+        is_left: true,
+        left: { bytes: new Uint8Array(32) },
+        right: { bytes: new Uint8Array(32) }
+      }
+    };
+    const kvs = [
+      { is_some: true, value: ["website", "example.com"] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+      { is_some: false, value: ["", ""] as [string, string] },
+    ];
+    const ledger = simulator.updateTargetAndFields(newTarget, kvs);
+    expect(ledger.DOMAIN_TARGET.is_left).toBe(true);
+    expect(ledger.DOMAIN_TARGET.left).toEqual({ bytes: new Uint8Array(32).fill(0xdd) });
+    expect(ledger.fields.member("website")).toBe(true);
+    expect(ledger.fields.lookup("website")).toBe("example.com");
   });
 });

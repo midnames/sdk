@@ -32,7 +32,7 @@ export sealed ledger DOMAIN: Maybe<Bytes<32>>;
 
 export ledger DOMAIN_OWNER: ZswapCoinPublicKey;
 // This domain could target either a wallet or a contract
-export ledger DOMAIN_TARGET: Either<ZswapCoinPublicKey, ContractAddress>;
+export ledger DOMAIN_TARGET: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>;
 
 // Map<domain, (owner, resolver)>.
 export ledger domains: Map<Bytes<32>, DomainData>;
@@ -42,6 +42,15 @@ export ledger domains_owned: Map<ZswapCoinPublicKey, Set<Bytes<32>>>;
 
 export ledger fields: Map<Opaque<'string'>, Opaque<'string'>>;
 
+export ledger DEFAULT_FIELD: Maybe<Opaque<'string'>>;
+
+export ledger BUY_ENABLED: Boolean;
+
+export enum AddressType {
+    ContractAddr,
+    ZswapCPKAddr,
+    UnshieldedAddr
+}
 
 export { DomainData, Either, Maybe }
 struct DomainData {
@@ -49,27 +58,39 @@ struct DomainData {
     resolver: ContractAddress
 }
 
-
 constructor(
     parent_domain: Maybe<Bytes<32>>,
     parent_resolver: ContractAddress,
-    target: Either<ZswapCoinPublicKey, ContractAddress>,
+    target: [Bytes<32>, AddressType],
     domain: Maybe<Bytes<32>>,
     coin_color: Bytes<32>,
     cost_short: Uint<128>,
     cost_med: Uint<128>,
     cost_long: Uint<128>,
+    default_field: Maybe<Opaque<'string'>>,
+    buy_enabled: Boolean,
     kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
 ) {
+    const target_type = disclose(target[1]);
+    if (target_type == AddressType.ContractAddr) {
+        DOMAIN_TARGET = left<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>(ContractAddress { bytes: disclose(target[0]) }) ;
+    } else if (target_type == AddressType.ZswapCPKAddr) {
+        DOMAIN_TARGET = right<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>(left<ZswapCoinPublicKey, UserAddress>(ZswapCoinPublicKey { bytes: disclose(target[0]) })) ;
+    } else /* if (target_type == AddressType.UnshieldedAddr)*/ {
+        DOMAIN_TARGET = right<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>(right<ZswapCoinPublicKey, UserAddress>(UserAddress { bytes: disclose(target[0]) })) ;
+    }
+
     DOMAIN_OWNER = ownPublicKey();
     PARENT_DOMAIN = disclose(parent_domain);
     PARENT_RESOLVER = disclose(parent_resolver);
-    DOMAIN_TARGET = disclose(target);
     DOMAIN = disclose(domain);
+
+    BUY_ENABLED = disclose(buy_enabled);
     COIN_COLOR = disclose(coin_color);
     COST_SHORT = disclose(cost_short);
     COST_MED = disclose(cost_med);
     COST_LONG = disclose(cost_long);
+    DEFAULT_FIELD = disclose(default_field);
     for (const kv of kvs) {
         if (disclose(kv) != none<[Opaque<'string'>, Opaque<'string'>]>()) {
             fields.insert(disclose(kv.value[0]),disclose(kv.value[1]));
@@ -98,8 +119,14 @@ export circuit update_costs(cost_short: Uint<128>, cost_med: Uint<128>, cost_lon
     COST_LONG = disclose(cost_long);
 }
 
+export circuit update_default_field(d: Maybe<Opaque<'string'>>): [] {
+    assert(DOMAIN_OWNER == ownPublicKey(), "Not the owner");
+    DEFAULT_FIELD = disclose(d);
+}
+
+
 export circuit update_target_and_fields(
-    new_target: Either<ZswapCoinPublicKey, ContractAddress>,
+    new_target: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>,
     kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
 ) : [] {
     assert(DOMAIN_OWNER == ownPublicKey(), "Not the domain owner");
@@ -115,6 +142,7 @@ export circuit update_target_and_fields(
 export circuit buy_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
     assert(len <= 32, "len must be <= 32");
     assert(len >= 1, "domain name cannot be empty");
+    assert(BUY_ENABLED, "buying domains is not enabled");
 
     const valid = fold(
       (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
@@ -221,7 +249,7 @@ export circuit set_resolver(domain: Bytes<32>, resolver: ContractAddress): [] {
     domains.insert(disclose(domain), disclose(new_data));
 }
 
-export circuit update_domain_target(new_target: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+export circuit update_domain_target(new_target: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>): [] {
     assert(DOMAIN_OWNER == ownPublicKey(), "Not the contract owner");
 
     DOMAIN_TARGET = disclose(new_target);

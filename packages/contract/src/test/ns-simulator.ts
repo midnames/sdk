@@ -6,6 +6,7 @@ import {
 } from "@midnight-ntwrk/compact-runtime";
 import {
   Contract,
+  AddressType,
   type Ledger,
   type Maybe,
   type Either,
@@ -21,16 +22,14 @@ export class NSSimulator {
     this.contract = new Contract<DNSPrivateState>(witnesses);
     const parentDomain: Maybe<Uint8Array> = { is_some: false, value: new Uint8Array(32) };
     const parentResolver = { bytes: new Uint8Array(32) };
-    const target: Either<{ bytes: Uint8Array }, { bytes: Uint8Array }> = {
-      is_left: true,
-      left: { bytes: new Uint8Array(32) },
-      right: { bytes: new Uint8Array(32) }
-    };
+    const target: [Uint8Array, AddressType] = [new Uint8Array(32), AddressType.ZswapCPKAddr];
     const domain: Maybe<Uint8Array> = { is_some: false, value: new Uint8Array(32) };
     const coinColor = new Uint8Array(32);
     const costShort = 100n;
     const costMed = 50n;
     const costLong = 10n;
+    const defaultField: Maybe<string> = { is_some: false, value: "" };
+    const buyEnabled = true;
     const noneKv: Maybe<[string, string]> = { is_some: false, value: ["", ""] };
     const kvs: Maybe<[string, string]>[] = Array(10).fill(noneKv);
 
@@ -48,6 +47,8 @@ export class NSSimulator {
       costShort,
       costMed,
       costLong,
+      defaultField,
+      buyEnabled,
       kvs
     );
     this.circuitContext = createCircuitContext(
@@ -106,9 +107,90 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
+  public changeOwner(newOwner: { bytes: Uint8Array }): Ledger {
+    this.circuitContext = this.contract.impureCircuits.change_owner(
+      this.circuitContext,
+      newOwner
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public insertField(key: string, value: string): Ledger {
+    this.circuitContext = this.contract.impureCircuits.insert_field(
+      this.circuitContext,
+      key,
+      value
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public clearField(key: string): Ledger {
+    this.circuitContext = this.contract.impureCircuits.clear_field(
+      this.circuitContext,
+      key
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
   public clearAllFields(): Ledger {
     this.circuitContext = this.contract.impureCircuits.clear_all_fields(
       this.circuitContext
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public addMultipleFields(kvs: Maybe<[string, string]>[]): Ledger {
+    this.circuitContext = this.contract.impureCircuits.add_multiple_fields(
+      this.circuitContext,
+      kvs
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public updateColor(color: Uint8Array): Ledger {
+    this.circuitContext = this.contract.impureCircuits.update_color(
+      this.circuitContext,
+      color
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public updateCosts(costShort: bigint, costMed: bigint, costLong: bigint): Ledger {
+    this.circuitContext = this.contract.impureCircuits.update_costs(
+      this.circuitContext,
+      costShort,
+      costMed,
+      costLong
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public updateDefaultField(d: Maybe<string>): Ledger {
+    this.circuitContext = this.contract.impureCircuits.update_default_field(
+      this.circuitContext,
+      d
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public updateTargetAndFields(
+    newTarget: Either<{ bytes: Uint8Array }, Either<{ bytes: Uint8Array }, { bytes: Uint8Array }>>,
+    kvs: Maybe<[string, string]>[]
+  ): Ledger {
+    this.circuitContext = this.contract.impureCircuits.update_target_and_fields(
+      this.circuitContext,
+      newTarget,
+      kvs
+    ).context;
+    return ledger(this.circuitContext.currentQueryContext.state);
+  }
+
+  public updateDomainTarget(
+    newTarget: Either<{ bytes: Uint8Array }, Either<{ bytes: Uint8Array }, { bytes: Uint8Array }>>
+  ): Ledger {
+    this.circuitContext = this.contract.impureCircuits.update_domain_target(
+      this.circuitContext,
+      newTarget
     ).context;
     return ledger(this.circuitContext.currentQueryContext.state);
   }
