@@ -1,4 +1,4 @@
-import { nativeToken, encodeCoinPublicKey, type CoinPublicKey } from "@midnight-ntwrk/ledger-v8";
+import { nativeToken, encodeCoinPublicKey, encodeUserAddress, type CoinPublicKey } from "@midnight-ntwrk/ledger-v8";
 import {
   createUnprovenCallTx,
   deployContract,
@@ -63,6 +63,7 @@ export interface DeployOpts {
   parentDomain: string | null;
   parentResolverAddress: string;
   targetCoinPublicKey: Uint8Array;
+  ownerAddress: Uint8Array;
   domain: string | null;
   buyEnabled?: boolean;
   fields?: Array<[string, string]>;
@@ -76,6 +77,7 @@ export async function deployLeafContract(
     parentDomain,
     parentResolverAddress,
     targetCoinPublicKey,
+    ownerAddress,
     domain,
     buyEnabled = true,
     fields = [],
@@ -108,6 +110,7 @@ export async function deployLeafContract(
       1n, // COST_LONG
       { is_some: false, value: "" }, // DEFAULT_FIELD
       buyEnabled,
+      { bytes: ownerAddress },
       kvs,
     ],
   });
@@ -164,6 +167,11 @@ export async function queryLedgerState(
 export function getOwnerCoinPublicKey(ctx: TestContext): Uint8Array {
   const pk = ctx.walletContext.shieldedSecretKeys.coinPublicKey as unknown as CoinPublicKey;
   return encodeCoinPublicKey(pk);
+}
+
+export function getOwnerUserAddress(ctx: TestContext): Uint8Array {
+  const addr = ctx.walletContext.unshieldedKeystore.getAddress();
+  return encodeUserAddress(addr);
 }
 
 export { domainToKey } from "../../utils.js";

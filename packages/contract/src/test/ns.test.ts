@@ -292,8 +292,10 @@ describe("owner operations", () => {
   it("change_owner updates DOMAIN_OWNER", () => {
     const simulator = new NSSimulator();
     const newOwner = { bytes: new Uint8Array(32).fill(5) };
-    const ledger = simulator.changeOwner(newOwner);
-    expect(ledger.DOMAIN_OWNER).toEqual(newOwner);
+    const newAddress = { bytes: new Uint8Array(32).fill(6) };
+    const ledger = simulator.changeOwner(newOwner, newAddress);
+    expect(ledger.DOMAIN_OWNER[0]).toEqual(newOwner);
+    expect(ledger.DOMAIN_OWNER[1]).toEqual(newAddress);
   });
 
   it("update_color updates COIN_COLOR", () => {

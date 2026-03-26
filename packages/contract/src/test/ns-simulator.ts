@@ -30,6 +30,7 @@ export class NSSimulator {
     const costLong = 10n;
     const defaultField: Maybe<string> = { is_some: false, value: "" };
     const buyEnabled = true;
+    const ownerAddress = { bytes: new Uint8Array(32) };
     const noneKv: Maybe<[string, string]> = { is_some: false, value: ["", ""] };
     const kvs: Maybe<[string, string]>[] = Array(10).fill(noneKv);
 
@@ -49,6 +50,7 @@ export class NSSimulator {
       costLong,
       defaultField,
       buyEnabled,
+      ownerAddress,
       kvs
     );
     this.circuitContext = createCircuitContext(
@@ -107,10 +109,11 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public changeOwner(newOwner: { bytes: Uint8Array }): Ledger {
+  public changeOwner(newOwner: { bytes: Uint8Array }, newAddress: { bytes: Uint8Array }): Ledger {
     this.circuitContext = this.contract.impureCircuits.change_owner(
       this.circuitContext,
-      newOwner
+      newOwner,
+      newAddress
     ).context;
     return ledger(this.circuitContext.currentQueryContext.state);
   }

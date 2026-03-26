@@ -13,6 +13,7 @@ import {
   queryLedgerState,
   waitForIndexer,
   getOwnerCoinPublicKey,
+  getOwnerUserAddress,
   parseContractAddress,
   domainToKey,
 } from "./helpers.js";
@@ -24,6 +25,7 @@ let ctx: TestContext;
 let tldContract: DeployedContract<any>;
 let tldAddress: string;
 let ownerCoinPubKey: Uint8Array;
+let ownerUserAddr: Uint8Array;
 
 const ZERO_ADDR =
   "0000000000000000000000000000000000000000000000000000000000000000";
@@ -33,6 +35,7 @@ const ZERO_ADDR =
 beforeAll(async () => {
   ctx = await setupTestEnvironment();
   ownerCoinPubKey = getOwnerCoinPublicKey(ctx);
+  ownerUserAddr = getOwnerUserAddress(ctx);
 
   // Deploy TLD contract
   console.log("[e2e] Deploying TLD contract...");
@@ -40,6 +43,7 @@ beforeAll(async () => {
     parentDomain: null,
     parentResolverAddress: ZERO_ADDR,
     targetCoinPublicKey: ownerCoinPubKey,
+    ownerAddress: ownerUserAddr,
     domain: null,
     buyEnabled: true,
   });
@@ -94,6 +98,7 @@ describe("register_domain_for (owner-only, free)", () => {
       parentDomain: domainName,
       parentResolverAddress: tldAddress,
       targetCoinPublicKey: ownerCoinPubKey,
+      ownerAddress: ownerUserAddr,
       domain: domainName,
     });
     childAddress = childContract.deployTxData.public.contractAddress;
@@ -138,6 +143,7 @@ describe("buy_domain_for (paid purchase)", () => {
       parentDomain: domainName,
       parentResolverAddress: tldAddress,
       targetCoinPublicKey: ownerCoinPubKey,
+      ownerAddress: ownerUserAddr,
       domain: domainName,
     });
     childAddress = childContract.deployTxData.public.contractAddress;
@@ -172,6 +178,7 @@ describe("fields management", () => {
       parentDomain: "fieldstest",
       parentResolverAddress: tldAddress,
       targetCoinPublicKey: ownerCoinPubKey,
+      ownerAddress: ownerUserAddr,
       domain: "fieldstest",
     });
     fieldsAddress = fieldsContract.deployTxData.public.contractAddress;
@@ -276,6 +283,7 @@ describe("owner operations", () => {
       parentDomain: "ownops",
       parentResolverAddress: tldAddress,
       targetCoinPublicKey: ownerCoinPubKey,
+      ownerAddress: ownerUserAddr,
       domain: "ownops",
     });
     ownedAddress = ownedContract.deployTxData.public.contractAddress;
@@ -342,6 +350,7 @@ describe("adversarial — unauthorized wallet", () => {
       parentDomain: "adversarial",
       parentResolverAddress: tldAddress,
       targetCoinPublicKey: ownerCoinPubKey,
+      ownerAddress: ownerUserAddr,
       domain: "adversarial",
     });
     targetAddress = contract.deployTxData.public.contractAddress;
@@ -382,6 +391,7 @@ describe("adversarial — unauthorized wallet", () => {
     await expect(
       callCircuit(attackerCtx, targetAddress, "change_owner", [
         { bytes: attackerPubKey },
+        { bytes: new Uint8Array(32).fill(0xff) },
       ]),
     ).rejects.toThrow();
   });
@@ -487,8 +497,8 @@ describe("adversarial — unauthorized wallet", () => {
 
   it("contract state is unchanged after all attacker attempts", async () => {
     const state = await queryLedgerState(ctx, targetAddress);
-    // Owner should still be the original
-    expect(state.DOMAIN_OWNER).toEqual({ bytes: ownerCoinPubKey });
+    // Owner key should still be the original
+    expect(state.DOMAIN_OWNER[0]).toEqual({ bytes: ownerCoinPubKey });
     // "owned" domain should still belong to the original owner
     const { key } = domainToKey("owned");
     expect(state.domains.lookup(key).owner).toEqual({ bytes: ownerCoinPubKey });
@@ -505,6 +515,7 @@ describe("adversarial — buy_domain_for disabled", () => {
       parentDomain: "nobuy",
       parentResolverAddress: tldAddress,
       targetCoinPublicKey: ownerCoinPubKey,
+      ownerAddress: ownerUserAddr,
       domain: "nobuy",
       buyEnabled: false,
     });
