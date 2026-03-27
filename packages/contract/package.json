@@ -31,7 +31,9 @@
     "test:e2e:adversarial": "vitest run --config vitest.e2e.config.ts src/test/e2e/adversarial.test.ts",
     "test:e2e:adversarial:no-up": "E2E_NO_UP=1 vitest run --config vitest.e2e.config.ts src/test/e2e/adversarial.test.ts",
     "test:e2e:tokens": "vitest run --config vitest.e2e.config.ts src/test/e2e/token-transfers.test.ts",
-    "test:e2e:tokens:no-up": "E2E_NO_UP=1 vitest run --config vitest.e2e.config.ts src/test/e2e/token-transfers.test.ts"
+    "test:e2e:tokens:no-up": "E2E_NO_UP=1 vitest run --config vitest.e2e.config.ts src/test/e2e/token-transfers.test.ts",
+    "test:e2e:strings": "vitest run --config vitest.e2e.config.ts src/test/e2e/string-validation.test.ts",
+    "test:e2e:strings:no-up": "E2E_NO_UP=1 vitest run --config vitest.e2e.config.ts src/test/e2e/string-validation.test.ts"
   },
   "devDependencies": {
     "@midnight-ntwrk/compact-js": "2.5.0",
