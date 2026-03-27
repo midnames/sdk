@@ -264,6 +264,28 @@ export const waitForSync = (wallet: WalletFacade) =>
     ),
   );
 
+export const getUnshieldedBalance = async (wallet: WalletFacade): Promise<bigint> => {
+  const state = await Rx.firstValueFrom(
+    wallet.state().pipe(Rx.filter((s) => s.isSynced)),
+  );
+  return state.unshielded?.balances[nativeToken().raw] ?? 0n;
+};
+
+export const waitForBalanceChange = (
+  wallet: WalletFacade,
+  previousBalance: bigint,
+  timeoutMs = 120_000,
+): Promise<bigint> =>
+  Rx.firstValueFrom(
+    wallet.state().pipe(
+      Rx.throttleTime(5_000),
+      Rx.filter((s) => s.isSynced),
+      Rx.map((s) => s.unshielded?.balances[nativeToken().raw] ?? 0n),
+      Rx.filter((balance) => balance !== previousBalance),
+      Rx.timeout(timeoutMs),
+    ),
+  );
+
 export const waitForFunds = (wallet: WalletFacade) =>
   Rx.firstValueFrom(
     wallet.state().pipe(

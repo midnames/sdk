@@ -131,6 +131,17 @@ export async function callCircuit(
 ): Promise<{ txId: string }> {
   console.log(`[e2e] Calling circuit: ${circuitId}`);
 
+  // Ensure the private state provider knows this contract address
+  // (needed when calling circuits on contracts deployed by other wallets)
+  ctx.providers.privateStateProvider.setContractAddress(contractAddress);
+  const existingState = await ctx.providers.privateStateProvider.get("namespacePrivateState");
+  if (existingState === undefined || existingState === null) {
+    await ctx.providers.privateStateProvider.set(
+      "namespacePrivateState",
+      { phantom: false },
+    );
+  }
+
   const unprovenCallTxData = await createUnprovenCallTx(ctx.providers, {
     compiledContract: leafContractInstance as any,
     circuitId,
