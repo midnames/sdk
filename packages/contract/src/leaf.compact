@@ -106,6 +106,7 @@ constructor(
 // ===========================================
 
 export ledger COIN_COLOR: Bytes<32>;
+export ledger SHIELDED: Boolean;
 export ledger COST_SHORT: Uint<128>;   // ≤3 chars
 export ledger COST_MED: Uint<128>;     // 4 chars
 export ledger COST_LONG: Uint<128>;    // 5+ chars
@@ -311,6 +312,34 @@ circuit is_hyphen(byte: Uint<8>) : Boolean {
 
 circuit is_padding(byte: Uint<8>) : Boolean {
     return byte == 255;
+}
+//circuit sendImmediateShielded(input: ShieldedCoinInfo, target: Either<ZswapCoinPublicKey, ContractAddress>, value: Uint<128>): ShieldedSendResult;
+circuit handle_payment(len: Uint<32>, input: Maybe<ShieldedCoinInfo>) : [] {
+
+    if (SHIELDED) {
+        const d_input = disclose(input);
+        if (d_len <= 3) {
+
+        } else if (d_len == 4) {
+            
+        } else {
+        }
+
+
+
+    } else {
+        if (d_len <= 3) {
+            receiveUnshielded(COIN_COLOR, COST_SHORT);
+            sendUnshielded(COIN_COLOR, COST_SHORT, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
+        } else if (d_len == 4) {
+            receiveUnshielded(COIN_COLOR, COST_MED);
+            sendUnshielded(COIN_COLOR, COST_MED, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
+        } else {
+            receiveUnshielded(COIN_COLOR, COST_LONG);
+            sendUnshielded(COIN_COLOR, COST_LONG, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
+        }
+    }
+
 }
 
 
