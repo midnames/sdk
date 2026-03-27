@@ -147,31 +147,13 @@ export circuit buy_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len:
     assert(len >= 1, "domain name cannot be empty");
     assert(BUY_ENABLED, "buying domains is not enabled");
 
-    // Add char validation
-    const valid = fold(
-      (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
-        acc && (
-        // if (i < len)
-          (((i as Uint<32>) < len) &&
-            // byte is [a-z]             ||  byte is [0-9]             || byte is -
-            ((byte >= 97 && byte <= 122) || (byte >= 48 && byte <= 57) || byte == 45) &&
-            // and first byte is not a -
-            !((i as Uint<32>) == 0 && byte == 45) &&
-            // and last byte inside len is not a -
-            !((i as Uint<32>) == (len - 1) && byte == 45)
-          ) ||
-          // else (case i >= len) it's padding
-          (((i as Uint<32>) >= len) && (byte == 255))
-        ),
-      true, domain,
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
-    );
+    const valid = verify_domain_path(domain, len);
     assert(valid, "Invalid domain key padding");
 
     assert(!domains.member(disclose(domain)), "Domain already exists");
 
-    // pricing: shared color, per-tier cost
     const d_len = disclose(len);
+    // pay per lenght of domain
     if (d_len <= 3) {
         receiveUnshielded(COIN_COLOR, COST_SHORT);
         sendUnshielded(COIN_COLOR, COST_SHORT, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
@@ -225,24 +207,7 @@ export circuit register_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>,
     assert(len <= 32, "len must be <= 32");
     assert(len >= 1, "domain name cannot be empty");
 
-    const valid = fold(
-      (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
-        acc && (
-        // if (i < len)
-          (((i as Uint<32>) < len) &&
-            // byte is [a-z]             ||  byte is [0-9]             || byte is -
-            ((byte >= 97 && byte <= 122) || (byte >= 48 && byte <= 57) || byte == 45) &&
-            // and first byte is not a -
-            !((i as Uint<32>) == 0 && byte == 45) &&
-            // and last byte inside len is not a -
-            !((i as Uint<32>) == (len - 1) && byte == 45)
-          ) ||
-          // else (case i >= len) it's padding
-          (((i as Uint<32>) >= len) && (byte == 255))
-        ),
-      true, domain,
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
-    );
+    const valid = verify_domain_path(domain, len);
     assert(valid, "Invalid domain key padding");
 
     assert(!domains.member(disclose(domain)), "Domain already exists");
@@ -308,6 +273,44 @@ export circuit transfer_domain(domain: Bytes<32>, new_owner: ZswapCoinPublicKey)
 export circuit change_owner(new_owner: ZswapCoinPublicKey, new_address: UserAddress) : [] {
     assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the contract owner");
     DOMAIN_OWNER = [disclose(new_owner), disclose(new_address)];
+}
+
+
+export circuit verify_domain_path(domain: Bytes<32>, len: Uint<32>,): Boolean {
+    return fold(
+      (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
+        acc && (
+        // if (i < len)
+          ((i < len)
+            // byte is a valid char
+            && (is_letter(byte) || is_number(byte) || is_hyphen(byte)) 
+            // and first byte is not a -
+            && !(i == 0 && is_hyphen(byte)) 
+            // and last byte inside len is not a -
+            && !(i == (len - 1) && is_hyphen(byte))
+          ) ||
+          // else (case i >= len) it's padding
+          ((i >= len) && is_padding(byte))
+        ),
+      true, domain,
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+    );
+}
+
+circuit is_letter(byte: Uint<8>) : Boolean {
+    return (97 <= byte && byte <= 122);
+}
+
+circuit is_number(byte: Uint<8>) : Boolean {
+    return (48 <= byte && byte <= 57);
+}
+
+circuit is_hyphen(byte: Uint<8>) : Boolean {
+    return byte == 45;
+}
+
+circuit is_padding(byte: Uint<8>) : Boolean {
+    return byte == 255;
 }
 
 
