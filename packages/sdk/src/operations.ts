@@ -11,7 +11,7 @@ import {
 import { isWalletAddress } from "./utils/address.js";
 import { getNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 
-import { Leaf, MANAGED_DIR } from "@midnames/ns";
+import { Leaf, MANAGED_DIR, witnesses } from "@midnames/ns";
 import type { Result } from "./results.js";
 import { success, failure } from "./results.js";
 import { NetworkError, InvalidDomainError } from "./errors.js";
@@ -33,7 +33,7 @@ export const leafContractInstance = CompiledContract.make(
   "leaf-contract",
   Leaf.Contract,
 ).pipe(
-  CompiledContract.withVacantWitnesses,
+  CompiledContract.withWitnesses(witnesses),
   CompiledContract.withCompiledFileAssets(MANAGED_DIR),
 );
 
@@ -115,11 +115,27 @@ function parseAddressToBytes(address: string): { bytes: Uint8Array } {
 
 function formatTargetForContract(address: string) {
   const parsed = parseAddressToBytes(address);
-  const isLeft = isWalletAddress(address);
+  if (isWalletAddress(address)) {
+    // ZswapCoinPublicKey → right.left
+    return {
+      is_left: false,
+      left: { bytes: new Uint8Array(32) },
+      right: {
+        is_left: true,
+        left: parsed,
+        right: { bytes: new Uint8Array(32) },
+      },
+    };
+  }
+  // ContractAddress → left
   return {
-    is_left: isLeft,
-    left: isLeft ? parsed : { bytes: new Uint8Array(32) },
-    right: isLeft ? { bytes: new Uint8Array(32) } : parsed,
+    is_left: true,
+    left: parsed,
+    right: {
+      is_left: true,
+      left: { bytes: new Uint8Array(32) },
+      right: { bytes: new Uint8Array(32) },
+    },
   };
 }
 
@@ -210,13 +226,13 @@ export async function updateDomainCosts(
 export async function transferDomainOwnership(
   parentDomain: string,
   subdomainName: string,
-  newOwnerAddress: string,
+  newOwnerDerivedKey: Uint8Array,
   providers: ContractProviders<Leaf.Contract>,
 ): Promise<Result<{ transactionId: string }>> {
   return withLeafContract(parentDomain, providers, "transfer domain ownership", async (contract) =>
     txId(await contract.callTx.transfer_domain(
       domainToKey(subdomainName).key,
-      parseAddressToBytes(newOwnerAddress),
+      newOwnerDerivedKey,
     )),
   );
 }
@@ -237,7 +253,7 @@ export async function setDomainResolver(
 
 export async function registerDomainFor(
   parentDomain: string,
-  ownerAddress: string,
+  ownerDerivedKey: Uint8Array,
   subdomainName: string,
   resolverAddress: string,
   providers: ContractProviders<Leaf.Contract>,
@@ -245,7 +261,7 @@ export async function registerDomainFor(
   return withLeafContract(parentDomain, providers, "register domain", async (contract) => {
     const { key, len } = domainToKey(subdomainName);
     return txId(await contract.callTx.register_domain_for(
-      parseAddressToBytes(ownerAddress),
+      ownerDerivedKey,
       key,
       len,
       parseAddressToBytes(resolverAddress),
@@ -255,7 +271,7 @@ export async function registerDomainFor(
 
 export async function buyDomainFor(
   parentDomain: string,
-  ownerAddress: string,
+  ownerDerivedKey: Uint8Array,
   subdomainName: string,
   resolverAddress: string,
   _paymentAmount: bigint,
@@ -263,8 +279,8 @@ export async function buyDomainFor(
 ): Promise<Result<{ transactionId: string }>> {
   return withLeafContract(parentDomain, providers, "buy domain", async (contract) => {
     const { key, len } = domainToKey(subdomainName);
-    return txId(await contract.callTx.register_domain_for(
-      parseAddressToBytes(ownerAddress),
+    return txId(await contract.callTx.buy_domain_for(
+      ownerDerivedKey,
       key,
       len,
       parseAddressToBytes(resolverAddress),
@@ -274,10 +290,11 @@ export async function buyDomainFor(
 
 export async function changeDomainOwner(
   domain: string,
+  newOwnerDerivedKey: Uint8Array,
   newOwnerAddress: string,
   providers: ContractProviders<Leaf.Contract>,
 ): Promise<Result<{ transactionId: string }>> {
   return withLeafContract(domain, providers, "change domain owner", async (contract) =>
-    txId(await contract.callTx.change_owner(parseAddressToBytes(newOwnerAddress))),
+    txId(await contract.callTx.change_owner(newOwnerDerivedKey, parseAddressToBytes(newOwnerAddress))),
   );
 }

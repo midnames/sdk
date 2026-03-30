@@ -40,8 +40,7 @@ import {
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
 
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
-import { Leaf } from "../../dist";
-import { witnesses } from "../../dist/witnesses";
+import { Leaf, witnesses } from "../../dist";
 import { domainToKey } from "../utils.js";
 
 import * as Rx from "rxjs";
@@ -473,9 +472,9 @@ async function deployLeafContract(
   providers: ContractProviders,
   parentDomain: string | null,
   parentResolver: string,
-  target:
-    | { tag: "Left"; value: { bytes: Uint8Array } }
-    | { tag: "Right"; value: string },
+  targetBytes: Uint8Array,
+  ownerAddress: Uint8Array,
+  secretKey: Uint8Array,
   domain: string | null,
   initialFields: Array<[string, string]> = [],
 ) {
@@ -493,29 +492,21 @@ async function deployLeafContract(
   const deployedContract = await deployContract(providers, {
     compiledContract: leafContractInstance as any,
     privateStateId: "namespacePrivateState",
-    initialPrivateState: { phantom: false },
+    initialPrivateState: { secretKey },
     args: [
       parentDomain
         ? { is_some: true, value: domainToKey(parentDomain).key }
         : { is_some: false, value: new Uint8Array(32) },
       parseContractAddress(parentResolver),
-      target.tag === "Left"
-        ? {
-            is_left: true,
-            left: target.value,
-            right: { bytes: new Uint8Array(32) },
-          }
-        : {
-            is_left: false,
-            left: { bytes: new Uint8Array(32) },
-            right: parseContractAddress(target.value),
-          },
+      [targetBytes, Leaf.AddressType.ZswapCPKAddr],
       domain ? { is_some: true, value: domainToKey(domain).key } : { is_some: false, value: new Uint8Array(32) },
-      // Shared coin color + per-tier costs: short (≤3 chars), medium (4 chars), long (5+ chars)
       new Uint8Array(Buffer.from(nativeToken().raw.toString().replace("0x", ""), "hex")),
       100n,
       10n,
       1n,
+      { is_some: false, value: "" }, // DEFAULT_FIELD
+      true, // BUY_ENABLED
+      { bytes: ownerAddress },
       kvs,
     ],
   });
@@ -530,7 +521,7 @@ async function buyDomainFor(
   contract:
     | FoundContract<any>
     | DeployedContract<any>,
-  ownerCoinPublicKey: Uint8Array,
+  ownerDerivedKey: Uint8Array,
   domainName: string,
   resolverAddress: string,
   providers: ContractProviders,
@@ -544,7 +535,7 @@ async function buyDomainFor(
     circuitId: "buy_domain_for",
     contractAddress: contract.deployTxData.public.contractAddress,
     args: [
-      { bytes: ownerCoinPublicKey },
+      ownerDerivedKey,
       domainKey,
       domainLen,
       parseContractAddress(resolverAddress),
@@ -765,10 +756,12 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
       (coinPublicKey as any).raw ||
         Buffer.from(coinPublicKey.toString().replace("0x", ""), "hex"),
     );
-    const walletTarget = {
-      tag: "Left" as const,
-      value: { bytes: coinPublicKeyBytes },
-    };
+    const ownerAddressBytes = new Uint8Array(
+      Buffer.from(
+        walletContext.unshieldedKeystore.getAddress().toString().replace("0x", ""),
+        "hex",
+      ),
+    );
 
     // Track deployed contracts: domain -> contract
     const deployedContracts: Map<
@@ -784,7 +777,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         contractAddress: address,
         compiledContract: leafContractInstance as any,
         privateStateId: "namespacePrivateState",
-        initialPrivateState: { phantom: false },
+        initialPrivateState: { secretKey: coinPublicKeyBytes },
       });
       deployedContracts.set(domain, found);
     }
@@ -802,14 +795,16 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         contractAddress: config.tldContractAddress,
         compiledContract: leafContractInstance as any,
         privateStateId: "namespacePrivateState",
-        initialPrivateState: { phantom: false },
+        initialPrivateState: { secretKey: coinPublicKeyBytes },
       });
     } else {
       rootContract = await deployLeafContract(
         providers,
         null,
         "0x" + ZERO_ADDR,
-        walletTarget,
+        coinPublicKeyBytes,
+        ownerAddressBytes,
+        coinPublicKeyBytes,
         tld,
       );
     }
@@ -845,7 +840,9 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         providers,
         parentDomainPath,
         parentContract.deployTxData.public.contractAddress,
-        walletTarget,
+        coinPublicKeyBytes,
+        ownerAddressBytes,
+        coinPublicKeyBytes,
         domainName,
         entry.fields,
       );

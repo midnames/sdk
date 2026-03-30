@@ -1,6 +1,8 @@
 export type DNSPrivateState = {
-  phantom: boolean;
+  secretKey: Uint8Array;
 };
 
-// NS contract doesn't use private state
-export const witnesses = {};
+export const witnesses = {
+  secretKey: ({ privateState }: { privateState: DNSPrivateState }): [DNSPrivateState, Uint8Array] =>
+    [privateState, privateState.secretKey],
+};

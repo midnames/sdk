@@ -1,4 +1,6 @@
-import { nativeToken, encodeCoinPublicKey, encodeUserAddress, type CoinPublicKey } from "@midnight-ntwrk/ledger-v8";
+import { nativeToken } from "@midnight-ntwrk/ledger-v8";
+import { createHash } from "node:crypto";
+import type { DNSPrivateState } from "../../witnesses.js";
 import {
   createUnprovenCallTx,
   deployContract,
@@ -62,7 +64,6 @@ export async function waitForIndexer(ms = 7_000): Promise<void> {
 export interface DeployOpts {
   parentDomain: string | null;
   parentResolverAddress: string;
-  targetCoinPublicKey: Uint8Array;
   ownerAddress: Uint8Array;
   domain: string | null;
   buyEnabled?: boolean;
@@ -76,7 +77,6 @@ export async function deployLeafContract(
   const {
     parentDomain,
     parentResolverAddress,
-    targetCoinPublicKey,
     ownerAddress,
     domain,
     buyEnabled = true,
@@ -94,13 +94,13 @@ export async function deployLeafContract(
   const deployed = await deployContract(ctx.providers, {
     compiledContract: leafContractInstance as any,
     privateStateId: "namespacePrivateState",
-    initialPrivateState: { phantom: false },
+    initialPrivateState: { secretKey: getSecretKey(ctx) } as DNSPrivateState,
     args: [
       parentDomain
         ? { is_some: true, value: domainToKey(parentDomain).key }
         : { is_some: false, value: new Uint8Array(32) },
       parseContractAddress(parentResolverAddress),
-      [targetCoinPublicKey, AddressType.ZswapCPKAddr],
+      [getOwnerCoinPublicKey(ctx), AddressType.ZswapCPKAddr],
       domain
         ? { is_some: true, value: domainToKey(domain).key }
         : { is_some: false, value: new Uint8Array(32) },
@@ -132,15 +132,12 @@ export async function callCircuit(
   console.log(`[e2e] Calling circuit: ${circuitId}`);
 
   // Ensure the private state provider knows this contract address
-  // (needed when calling circuits on contracts deployed by other wallets)
+  // and has the correct secret key for witness resolution
   ctx.providers.privateStateProvider.setContractAddress(contractAddress);
-  const existingState = await ctx.providers.privateStateProvider.get("namespacePrivateState");
-  if (existingState === undefined || existingState === null) {
-    await ctx.providers.privateStateProvider.set(
-      "namespacePrivateState",
-      { phantom: false },
-    );
-  }
+  await ctx.providers.privateStateProvider.set(
+    "namespacePrivateState",
+    { secretKey: getSecretKey(ctx) } as DNSPrivateState,
+  );
 
   const unprovenCallTxData = await createUnprovenCallTx(ctx.providers, {
     compiledContract: leafContractInstance as any,
@@ -173,16 +170,32 @@ export async function queryLedgerState(
   return ledger((contractState as any).data);
 }
 
+// ─── Key helpers ────────────────────────────────────────────────────────────
+
+export function getSecretKey(ctx: TestContext): Uint8Array {
+  const pk = getOwnerCoinPublicKey(ctx);
+  return new Uint8Array(createHash("sha256").update(pk).digest());
+}
+
+export async function getDerivedPublicKey(ctx: TestContext, contractAddress: string): Promise<Uint8Array> {
+  const state = await queryLedgerState(ctx, contractAddress);
+  return state.DOMAIN_OWNER[0];
+}
+
 // ─── Domain helpers ──────────────────────────────────────────────────────────
 
 export function getOwnerCoinPublicKey(ctx: TestContext): Uint8Array {
-  const pk = ctx.walletContext.shieldedSecretKeys.coinPublicKey as unknown as CoinPublicKey;
-  return encodeCoinPublicKey(pk);
+  const pk = ctx.walletContext.shieldedSecretKeys.coinPublicKey;
+  const raw = (pk as any).raw;
+  if (raw) return new Uint8Array(raw).length === 32 ? new Uint8Array(raw) : new Uint8Array(raw).subarray(-32);
+  return new Uint8Array(Buffer.from(pk.toString().replace("0x", ""), "hex")).subarray(-32);
 }
 
 export function getOwnerUserAddress(ctx: TestContext): Uint8Array {
   const addr = ctx.walletContext.unshieldedKeystore.getAddress();
-  return encodeUserAddress(addr);
+  const raw = (addr as any).raw;
+  if (raw) return new Uint8Array(raw).length === 32 ? new Uint8Array(raw) : new Uint8Array(raw).subarray(-32);
+  return new Uint8Array(Buffer.from(addr.toString().replace("0x", ""), "hex")).subarray(-32);
 }
 
 export { domainToKey } from "../../utils.js";

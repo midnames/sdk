@@ -18,7 +18,7 @@ export class NSSimulator {
   readonly contract: Contract<DNSPrivateState>;
   circuitContext: CircuitContext<DNSPrivateState>;
 
-  constructor() {
+  constructor(secretKey: Uint8Array = new Uint8Array(32)) {
     this.contract = new Contract<DNSPrivateState>(witnesses);
     const parentDomain: Maybe<Uint8Array> = { is_some: false, value: new Uint8Array(32) };
     const parentResolver = { bytes: new Uint8Array(32) };
@@ -39,7 +39,7 @@ export class NSSimulator {
       currentContractState,
       currentZswapLocalState
     } = this.contract.initialState(
-      createConstructorContext({ phantom: true } as DNSPrivateState, "0".repeat(64)),
+      createConstructorContext({ secretKey } as DNSPrivateState, "0".repeat(64)),
       parentDomain,
       parentResolver,
       target,
@@ -69,7 +69,11 @@ export class NSSimulator {
     return this.circuitContext.currentPrivateState;
   }
 
-  public buyDomainFor(owner: { bytes: Uint8Array }, domain: Uint8Array, len: bigint, resolver: { bytes: Uint8Array }): Ledger {
+  public getDerivedPublicKey(): Uint8Array {
+    return this.getLedger().DOMAIN_OWNER[0];
+  }
+
+  public buyDomainFor(owner: Uint8Array, domain: Uint8Array, len: bigint, resolver: { bytes: Uint8Array }): Ledger {
     this.circuitContext = this.contract.impureCircuits.buy_domain_for(
       this.circuitContext,
       owner,
@@ -80,7 +84,7 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public registerDomainFor(owner: { bytes: Uint8Array }, domain: Uint8Array, len: bigint, resolver: { bytes: Uint8Array }): Ledger {
+  public registerDomainFor(owner: Uint8Array, domain: Uint8Array, len: bigint, resolver: { bytes: Uint8Array }): Ledger {
     this.circuitContext = this.contract.impureCircuits.register_domain_for(
       this.circuitContext,
       owner,
@@ -100,7 +104,7 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public transferDomain(domain: Uint8Array, newOwner: { bytes: Uint8Array }): Ledger {
+  public transferDomain(domain: Uint8Array, newOwner: Uint8Array): Ledger {
     this.circuitContext = this.contract.impureCircuits.transfer_domain(
       this.circuitContext,
       domain,
@@ -109,7 +113,7 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public changeOwner(newOwner: { bytes: Uint8Array }, newAddress: { bytes: Uint8Array }): Ledger {
+  public changeOwner(newOwner: Uint8Array, newAddress: { bytes: Uint8Array }): Ledger {
     this.circuitContext = this.contract.impureCircuits.change_owner(
       this.circuitContext,
       newOwner,

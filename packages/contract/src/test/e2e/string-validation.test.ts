@@ -9,11 +9,13 @@ import {
 import {
   deployLeafContract,
   callCircuit,
+  getDerivedPublicKey,
   parseContractAddress,
 } from "./helpers.js";
 
 let e2e: E2EContext;
 let testContractAddress: string;
+let ownerDerivedKeyForTest: Uint8Array;
 
 beforeAll(async () => {
   e2e = await setupE2E();
@@ -21,12 +23,13 @@ beforeAll(async () => {
   const contract = await deployLeafContract(e2e.ctx, {
     parentDomain: "stringtest",
     parentResolverAddress: e2e.tldAddress,
-    targetCoinPublicKey: e2e.ownerCoinPubKey,
     ownerAddress: e2e.ownerUserAddr,
     domain: "stringtest",
   });
   testContractAddress = contract.deployTxData.public.contractAddress;
   await syncAndWait(e2e.ctx);
+
+  ownerDerivedKeyForTest = await getDerivedPublicKey(e2e.ctx, testContractAddress);
 }, 180_000);
 
 afterAll(async () => {
@@ -61,7 +64,7 @@ describe("string validation — valid domains", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -75,7 +78,7 @@ describe("string validation — valid domains", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -89,7 +92,7 @@ describe("string validation — valid domains", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -103,7 +106,7 @@ describe("string validation — valid domains", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -117,7 +120,7 @@ describe("string validation — valid domains", () => {
     const key = new Uint8Array(32).fill(0x61); // all 'a', no padding needed
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         32n,
         parseContractAddress(ZERO_ADDR),
@@ -131,7 +134,7 @@ describe("string validation — valid domains", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -151,7 +154,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -164,7 +167,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -177,7 +180,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -190,7 +193,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -203,7 +206,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -216,7 +219,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -229,7 +232,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -242,7 +245,7 @@ describe("string validation — invalid characters", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -262,7 +265,7 @@ describe("string validation — unicode rejection", () => {
     const key = createDomainKey(bytes);
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(bytes.length),
         parseContractAddress(ZERO_ADDR),
@@ -276,7 +279,7 @@ describe("string validation — unicode rejection", () => {
     const key = createDomainKey(bytes);
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(bytes.length),
         parseContractAddress(ZERO_ADDR),
@@ -289,7 +292,7 @@ describe("string validation — unicode rejection", () => {
     const key = createDomainKey(bytes);
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(bytes.length),
         parseContractAddress(ZERO_ADDR),
@@ -308,7 +311,7 @@ describe("string validation — hyphen positioning", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -321,7 +324,7 @@ describe("string validation — hyphen positioning", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -334,7 +337,7 @@ describe("string validation — hyphen positioning", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -347,7 +350,7 @@ describe("string validation — hyphen positioning", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -360,7 +363,7 @@ describe("string validation — hyphen positioning", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -378,7 +381,7 @@ describe("string validation — length boundaries", () => {
     const key = new Uint8Array(32).fill(255);
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         0n,
         parseContractAddress(ZERO_ADDR),
@@ -390,7 +393,7 @@ describe("string validation — length boundaries", () => {
     const key = new Uint8Array(32).fill(0x61);
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         33n,
         parseContractAddress(ZERO_ADDR),
@@ -412,7 +415,7 @@ describe("string validation — padding", () => {
     key[2] = 0x00; // should be 0xFF
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         2n,
         parseContractAddress(ZERO_ADDR),
@@ -430,7 +433,7 @@ describe("string validation — padding", () => {
     key[10] = 0x00; // invalid padding byte
     await expect(
       callCircuit(e2e.ctx, testContractAddress, "register_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         4n,
         parseContractAddress(ZERO_ADDR),
@@ -449,7 +452,7 @@ describe("string validation — buy_domain_for", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -462,7 +465,7 @@ describe("string validation — buy_domain_for", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),
@@ -475,7 +478,7 @@ describe("string validation — buy_domain_for", () => {
     const key = createDomainKey(stringToBytes(name));
     await expect(
       callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
         parseContractAddress(ZERO_ADDR),

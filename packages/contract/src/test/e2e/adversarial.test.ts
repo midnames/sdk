@@ -17,6 +17,7 @@ import {
   callCircuit,
   queryLedgerState,
   getOwnerCoinPublicKey,
+  getDerivedPublicKey,
   parseContractAddress,
   domainToKey,
 } from "./helpers.js";
@@ -39,6 +40,7 @@ describe("adversarial — unauthorized wallet", () => {
   let attackerCtx: TestContext;
   let attackerPubKey: Uint8Array;
   let targetAddress: string;
+  let ownerDerivedKeyForTarget: Uint8Array;
 
   beforeAll(async () => {
     attackerCtx = await setupAdditionalWallet(
@@ -51,16 +53,17 @@ describe("adversarial — unauthorized wallet", () => {
     const contract = await deployLeafContract(e2e.ctx, {
       parentDomain: "adversarial",
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: "adversarial",
     });
     targetAddress = contract.deployTxData.public.contractAddress;
     await syncAndWait(e2e.ctx);
 
+    ownerDerivedKeyForTarget = await getDerivedPublicKey(e2e.ctx, targetAddress);
+
     const { key, len } = domainToKey("owned");
     await callCircuit(e2e.ctx, targetAddress, "register_domain_for", [
-      { bytes: e2e.ownerCoinPubKey },
+      ownerDerivedKeyForTarget,
       key,
       len,
       parseContractAddress(ZERO_ADDR),
@@ -80,7 +83,7 @@ describe("adversarial — unauthorized wallet", () => {
     const { key, len } = domainToKey("stolen");
     await expect(
       callCircuit(attackerCtx, targetAddress, "register_domain_for", [
-        { bytes: attackerPubKey },
+        attackerPubKey,
         key,
         len,
         parseContractAddress(ZERO_ADDR),
@@ -91,7 +94,7 @@ describe("adversarial — unauthorized wallet", () => {
   it("rejects change_owner from non-owner", async () => {
     await expect(
       callCircuit(attackerCtx, targetAddress, "change_owner", [
-        { bytes: attackerPubKey },
+        attackerPubKey,
         { bytes: new Uint8Array(32).fill(0xff) },
       ]),
     ).rejects.toThrow();
@@ -189,7 +192,7 @@ describe("adversarial — unauthorized wallet", () => {
     await expect(
       callCircuit(attackerCtx, targetAddress, "transfer_domain", [
         key,
-        { bytes: attackerPubKey },
+        attackerPubKey,
       ]),
     ).rejects.toThrow();
   });
@@ -198,9 +201,9 @@ describe("adversarial — unauthorized wallet", () => {
 
   it("contract state is unchanged after all attacker attempts", async () => {
     const state = await queryLedgerState(e2e.ctx, targetAddress);
-    expect(state.DOMAIN_OWNER[0]).toEqual({ bytes: e2e.ownerCoinPubKey });
+    expect(state.DOMAIN_OWNER[0]).toEqual(ownerDerivedKeyForTarget);
     const { key } = domainToKey("owned");
-    expect(state.domains.lookup(key).owner).toEqual({ bytes: e2e.ownerCoinPubKey });
+    expect(state.domains.lookup(key).owner).toEqual(ownerDerivedKeyForTarget);
     expect(state.fields.member("evil")).toBe(false);
   });
 });
@@ -212,7 +215,6 @@ describe("adversarial — buy_domain_for disabled", () => {
     const contract = await deployLeafContract(e2e.ctx, {
       parentDomain: "nobuy",
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: "nobuy",
       buyEnabled: false,
@@ -225,7 +227,7 @@ describe("adversarial — buy_domain_for disabled", () => {
     const { key, len } = domainToKey("attempt");
     await expect(
       callCircuit(e2e.ctx, disabledBuyAddress, "buy_domain_for", [
-        { bytes: e2e.ownerCoinPubKey },
+        e2e.ownerDerivedKey,
         key,
         len,
         parseContractAddress(ZERO_ADDR),

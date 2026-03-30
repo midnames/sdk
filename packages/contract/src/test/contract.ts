@@ -310,7 +310,7 @@ async function joinDomainContract(
     contractAddress: domainContractAddress,
     contract: leafContractInstance,
     privateStateId: "namespacePrivateState",
-    initialPrivateState: { phantom: false },
+    initialPrivateState: { secretKey: new Uint8Array(32) },
   });
 }
 
@@ -702,7 +702,7 @@ async function registerSubdomain(
   const deployedContract = await deployContract(providers, {
     compiledContract: leafContractInstance,
     privateStateId: "namespacePrivateState",
-    initialPrivateState: { phantom: false },
+    initialPrivateState: { secretKey: new Uint8Array(32) },
     args: [
       // Parent domain
       { is_some: true, value: parentDomain },
@@ -795,7 +795,7 @@ async function buySubdomain(
   const deployedContract = await deployContract(providers, {
     compiledContract: leafContractInstance,
     privateStateId: "namespacePrivateState",
-    initialPrivateState: { phantom: false },
+    initialPrivateState: { secretKey: new Uint8Array(32) },
     args: [
       // Parent domain
       { is_some: true, value: parentDomain },

@@ -276,7 +276,7 @@ export circuit change_owner(new_owner: Bytes<32>, new_address: UserAddress) : []
 }
 
 
-export circuit verify_domain_path(domain: Bytes<32>, len: Uint<32>,): Boolean {
+circuit verify_domain_path(domain: Bytes<32>, len: Uint<32>,): Boolean {
     return fold(
       (acc: Boolean, byte: Uint<8>, i: Uint<8>): Boolean =>
         acc && (

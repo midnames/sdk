@@ -15,7 +15,6 @@ function stringToKey(s: string): Uint8Array {
   return paddedKey(bytes);
 }
 
-const dummyOwner = { bytes: new Uint8Array(32) };
 const dummyResolver = { bytes: new Uint8Array(32) };
 
 // ===========================================
@@ -55,55 +54,63 @@ describe("Leaf contract", () => {
 describe("buy_domain_for — validation", () => {
   it("accepts a valid domain purchase with proper padding", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("alice");
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 5n, dummyResolver)).not.toThrow();
+    expect(() => simulator.buyDomainFor(owner, key, 5n, dummyResolver)).not.toThrow();
   });
 
   it("accepts len=1 (short premium name)", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = paddedKey([0x61]); // 'a'
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 1n, dummyResolver)).not.toThrow();
+    expect(() => simulator.buyDomainFor(owner, key, 1n, dummyResolver)).not.toThrow();
   });
 
   it("accepts len=32 (max length domain)", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = new Uint8Array(32).fill(0x61); // all 'a'
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 32n, dummyResolver)).not.toThrow();
+    expect(() => simulator.buyDomainFor(owner, key, 32n, dummyResolver)).not.toThrow();
   });
 
   it("rejects non-255 byte in padding region", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = paddedKey([0x61, 0x62]); // 'a', 'b'
     key[2] = 0x63; // should be 255
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 2n, dummyResolver)).toThrow();
+    expect(() => simulator.buyDomainFor(owner, key, 2n, dummyResolver)).toThrow();
   });
 
   it("rejects len > 32", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = new Uint8Array(32).fill(0x61);
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 33n, dummyResolver)).toThrow();
+    expect(() => simulator.buyDomainFor(owner, key, 33n, dummyResolver)).toThrow();
   });
 
   it("rejects len = 0 (empty name)", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = new Uint8Array(32).fill(255);
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 0n, dummyResolver)).toThrow();
+    expect(() => simulator.buyDomainFor(owner, key, 0n, dummyResolver)).toThrow();
   });
 
   it("rejects duplicate domain purchase", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("alice");
-    simulator.buyDomainFor(dummyOwner, key, 5n, dummyResolver);
-    expect(() => simulator.buyDomainFor(dummyOwner, key, 5n, dummyResolver)).toThrow();
+    simulator.buyDomainFor(owner, key, 5n, dummyResolver);
+    expect(() => simulator.buyDomainFor(owner, key, 5n, dummyResolver)).toThrow();
   });
 
   it("stores domain data correctly after purchase", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("bob");
-    const ledger = simulator.buyDomainFor(dummyOwner, key, 3n, dummyResolver);
+    const ledger = simulator.buyDomainFor(owner, key, 3n, dummyResolver);
     expect(ledger.domains.member(key)).toBe(true);
     const data = ledger.domains.lookup(key);
-    expect(data.owner).toEqual(dummyOwner);
+    expect(data.owner).toEqual(owner);
     expect(data.resolver).toEqual(dummyResolver);
   });
 
@@ -127,38 +134,43 @@ describe("buy_domain_for — validation", () => {
 describe("register_domain_for — validation", () => {
   it("accepts a valid domain registration with proper padding", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("test");
-    expect(() => simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver)).not.toThrow();
+    expect(() => simulator.registerDomainFor(owner, key, 4n, dummyResolver)).not.toThrow();
   });
 
   it("rejects invalid padding", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = paddedKey([0x61, 0x62]); // 'a', 'b'
     key[2] = 0x00; // should be 255
-    expect(() => simulator.registerDomainFor(dummyOwner, key, 2n, dummyResolver)).toThrow();
+    expect(() => simulator.registerDomainFor(owner, key, 2n, dummyResolver)).toThrow();
   });
 
   it("rejects empty name (len=0)", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = new Uint8Array(32).fill(255);
-    expect(() => simulator.registerDomainFor(dummyOwner, key, 0n, dummyResolver)).toThrow();
+    expect(() => simulator.registerDomainFor(owner, key, 0n, dummyResolver)).toThrow();
   });
 
   it("stores domain data correctly after registration", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("test");
-    const ledger = simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    const ledger = simulator.registerDomainFor(owner, key, 4n, dummyResolver);
     expect(ledger.domains.member(key)).toBe(true);
     const data = ledger.domains.lookup(key);
-    expect(data.owner).toEqual(dummyOwner);
+    expect(data.owner).toEqual(owner);
     expect(data.resolver).toEqual(dummyResolver);
   });
 
   it("rejects duplicate registration", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("test");
-    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
-    expect(() => simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver)).toThrow();
+    simulator.registerDomainFor(owner, key, 4n, dummyResolver);
+    expect(() => simulator.registerDomainFor(owner, key, 4n, dummyResolver)).toThrow();
   });
 });
 
@@ -226,13 +238,14 @@ describe("fields management", () => {
 describe("domain management", () => {
   it("set_resolver updates resolver for existing domain", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("test");
-    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
+    simulator.registerDomainFor(owner, key, 4n, dummyResolver);
     const newResolver = { bytes: new Uint8Array(32).fill(1) };
     const ledger = simulator.setResolver(key, newResolver);
     expect(ledger.domains.lookup(key).resolver).toEqual(newResolver);
     // Owner should remain unchanged
-    expect(ledger.domains.lookup(key).owner).toEqual(dummyOwner);
+    expect(ledger.domains.lookup(key).owner).toEqual(owner);
   });
 
   it("set_resolver fails for non-existent domain", () => {
@@ -243,9 +256,10 @@ describe("domain management", () => {
 
   it("transfer_domain changes owner in domains map", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("test");
-    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
-    const newOwner = { bytes: new Uint8Array(32).fill(2) };
+    simulator.registerDomainFor(owner, key, 4n, dummyResolver);
+    const newOwner = new Uint8Array(32).fill(2);
     const ledger = simulator.transferDomain(key, newOwner);
     expect(ledger.domains.lookup(key).owner).toEqual(newOwner);
     // Resolver should remain unchanged
@@ -254,30 +268,32 @@ describe("domain management", () => {
 
   it("transfer_domain updates domains_owned tracking", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key = stringToKey("test");
-    simulator.registerDomainFor(dummyOwner, key, 4n, dummyResolver);
-    const newOwner = { bytes: new Uint8Array(32).fill(2) };
+    simulator.registerDomainFor(owner, key, 4n, dummyResolver);
+    const newOwner = new Uint8Array(32).fill(2);
     const ledger = simulator.transferDomain(key, newOwner);
     // New owner should have the domain
     expect(ledger.domains_owned.member(newOwner)).toBe(true);
     expect(ledger.domains_owned.lookup(newOwner).member(key)).toBe(true);
     // Old owner should no longer have it
-    expect(ledger.domains_owned.lookup(dummyOwner).member(key)).toBe(false);
+    expect(ledger.domains_owned.lookup(owner).member(key)).toBe(false);
   });
 
   it("transfer_domain fails for non-existent domain", () => {
     const simulator = new NSSimulator();
     const key = stringToKey("nope");
-    const newOwner = { bytes: new Uint8Array(32).fill(2) };
+    const newOwner = new Uint8Array(32).fill(2);
     expect(() => simulator.transferDomain(key, newOwner)).toThrow();
   });
 
   it("multiple domains can be registered under the same parent", () => {
     const simulator = new NSSimulator();
+    const owner = simulator.getDerivedPublicKey();
     const key1 = stringToKey("alice");
     const key2 = stringToKey("bob");
-    simulator.registerDomainFor(dummyOwner, key1, 5n, dummyResolver);
-    const ledger = simulator.registerDomainFor(dummyOwner, key2, 3n, dummyResolver);
+    simulator.registerDomainFor(owner, key1, 5n, dummyResolver);
+    const ledger = simulator.registerDomainFor(owner, key2, 3n, dummyResolver);
     expect(ledger.domains.member(key1)).toBe(true);
     expect(ledger.domains.member(key2)).toBe(true);
     expect(ledger.domains.size()).toBe(2n);
@@ -291,7 +307,7 @@ describe("domain management", () => {
 describe("owner operations", () => {
   it("change_owner updates DOMAIN_OWNER", () => {
     const simulator = new NSSimulator();
-    const newOwner = { bytes: new Uint8Array(32).fill(5) };
+    const newOwner = new Uint8Array(32).fill(5);
     const newAddress = { bytes: new Uint8Array(32).fill(6) };
     const ledger = simulator.changeOwner(newOwner, newAddress);
     expect(ledger.DOMAIN_OWNER[0]).toEqual(newOwner);

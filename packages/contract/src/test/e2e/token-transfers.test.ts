@@ -52,7 +52,6 @@ describe("buy_domain_for — token transfers", () => {
     const contract = await deployLeafContract(e2e.ctx, {
       parentDomain: "shop",
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: "shop",
       buyEnabled: true,
@@ -72,7 +71,7 @@ describe("buy_domain_for — token transfers", () => {
 
     const { key, len } = domainToKey("longtx");
     await callCircuit(buyerCtx, shopAddress, "buy_domain_for", [
-      { bytes: buyerPubKey },
+      buyerPubKey,
       key,
       len,
       parseContractAddress(ZERO_ADDR),
@@ -94,7 +93,7 @@ describe("buy_domain_for — token transfers", () => {
 
     const { key, len } = domainToKey("abc");
     await callCircuit(buyerCtx, shopAddress, "buy_domain_for", [
-      { bytes: buyerPubKey },
+      buyerPubKey,
       key,
       len,
       parseContractAddress(ZERO_ADDR),
@@ -118,7 +117,7 @@ describe("buy_domain_for — token transfers", () => {
 
     const { key, len } = domainToKey("four");
     await callCircuit(buyerCtx, shopAddress, "buy_domain_for", [
-      { bytes: buyerPubKey },
+      buyerPubKey,
       key,
       len,
       parseContractAddress(ZERO_ADDR),
@@ -141,7 +140,7 @@ describe("buy_domain_for — token transfers", () => {
     for (const name of ["longtx", "abc", "four"]) {
       const { key } = domainToKey(name);
       expect(state.domains.member(key)).toBe(true);
-      expect(state.domains.lookup(key).owner).toEqual({ bytes: buyerPubKey });
+      expect(state.domains.lookup(key).owner).toEqual(buyerPubKey);
     }
   });
 });

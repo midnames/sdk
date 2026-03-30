@@ -13,7 +13,6 @@ import {
   parseContractAddress,
   domainToKey,
 } from "./helpers.js";
-import type { DeployedContract } from "@midnight-ntwrk/midnight-js-contracts";
 
 let e2e: E2EContext;
 
@@ -53,7 +52,6 @@ describe("register_domain_for (owner-only, free)", () => {
     const childContract = await deployLeafContract(e2e.ctx, {
       parentDomain: domainName,
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: domainName,
     });
@@ -64,7 +62,7 @@ describe("register_domain_for (owner-only, free)", () => {
 
     const { key, len } = domainToKey(domainName);
     await callCircuit(e2e.ctx, e2e.tldAddress, "register_domain_for", [
-      { bytes: e2e.ownerCoinPubKey },
+      e2e.ownerDerivedKey,
       key,
       len,
       parseContractAddress(childAddress),
@@ -95,7 +93,6 @@ describe("buy_domain_for (paid purchase)", () => {
     const childContract = await deployLeafContract(e2e.ctx, {
       parentDomain: domainName,
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: domainName,
     });
@@ -105,7 +102,7 @@ describe("buy_domain_for (paid purchase)", () => {
 
     const { key, len } = domainToKey(domainName);
     await callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
-      { bytes: e2e.ownerCoinPubKey },
+      e2e.ownerDerivedKey,
       key,
       len,
       parseContractAddress(childAddress),
@@ -128,7 +125,6 @@ describe("fields management", () => {
     const fieldsContract = await deployLeafContract(e2e.ctx, {
       parentDomain: "fieldstest",
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: "fieldstest",
     });
@@ -191,7 +187,7 @@ describe("domain management", () => {
     const resolver = parseContractAddress(ZERO_ADDR);
 
     await callCircuit(e2e.ctx, e2e.tldAddress, "register_domain_for", [
-      { bytes: e2e.ownerCoinPubKey },
+      e2e.ownerDerivedKey,
       key,
       len,
       resolver,
@@ -212,7 +208,7 @@ describe("domain management", () => {
 
   it("transfer_domain changes owner", async () => {
     const { key } = domainToKey(domainName);
-    const newOwner = { bytes: new Uint8Array(32).fill(0x01) };
+    const newOwner = new Uint8Array(32).fill(0x01);
 
     await callCircuit(e2e.ctx, e2e.tldAddress, "transfer_domain", [key, newOwner]);
     await syncAndWait(e2e.ctx);
@@ -229,7 +225,6 @@ describe("owner operations", () => {
     const ownedContract = await deployLeafContract(e2e.ctx, {
       parentDomain: "ownops",
       parentResolverAddress: e2e.tldAddress,
-      targetCoinPublicKey: e2e.ownerCoinPubKey,
       ownerAddress: e2e.ownerUserAddr,
       domain: "ownops",
     });
