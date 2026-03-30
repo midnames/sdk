@@ -40,7 +40,7 @@ export function buildTraversalPath(fullDomain: string, tld: string = DEFAULT_TLD
 }
 
 export function isValidDomainName(domainName: string): boolean {
-  if (!domainName || domainName.length === 0 || domainName.length > 63) return false;
+  if (!domainName || domainName.length === 0 || domainName.length > 32) return false;
   const regex = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
   return regex.test(domainName.toLowerCase());
 }

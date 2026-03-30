@@ -127,6 +127,11 @@ export circuit update_default_field(d: Maybe<Opaque<'string'>>): [] {
     DEFAULT_FIELD = disclose(d);
 }
 
+export circuit update_buy_enabled(enabled: Boolean): [] {
+    assert_is_owner();
+    BUY_ENABLED = disclose(enabled);
+}
+
 
 export circuit update_target_and_fields(
     new_target: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>,
