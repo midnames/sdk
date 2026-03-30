@@ -32,7 +32,7 @@ export sealed ledger PARENT_DOMAIN: Maybe<Bytes<32>>;
 export sealed ledger PARENT_RESOLVER: ContractAddress;
 export sealed ledger DOMAIN: Maybe<Bytes<32>>;
 
-export ledger DOMAIN_OWNER: [ZswapCoinPublicKey, UserAddress];
+export ledger DOMAIN_OWNER: [Bytes<32>, UserAddress];
 // This domain could target either a wallet or a contract
 export ledger DOMAIN_TARGET: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>;
 
@@ -40,7 +40,7 @@ export ledger DOMAIN_TARGET: Either<ContractAddress, Either<ZswapCoinPublicKey, 
 export ledger domains: Map<Bytes<32>, DomainData>;
 
 // Set of domains saved here owned by address.
-export ledger domains_owned: Map<ZswapCoinPublicKey, Set<Bytes<32>>>;
+export ledger domains_owned: Map<Bytes<32>, Set<Bytes<32>>>;
 
 export ledger fields: Map<Opaque<'string'>, Opaque<'string'>>;
 
@@ -56,7 +56,7 @@ export enum AddressType {
 
 export { DomainData, Either, Maybe }
 struct DomainData {
-    owner: ZswapCoinPublicKey,
+    owner: Bytes<32>,
     resolver: ContractAddress
 }
 
@@ -83,7 +83,7 @@ constructor(
         DOMAIN_TARGET = right<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>(right<ZswapCoinPublicKey, UserAddress>(UserAddress { bytes: disclose(target[0]) })) ;
     }
 
-    DOMAIN_OWNER = [ownPublicKey(), disclose(owner_address)];
+    DOMAIN_OWNER = [derive_public_key(), disclose(owner_address)];
     PARENT_DOMAIN = disclose(parent_domain);
     PARENT_RESOLVER = disclose(parent_resolver);
     DOMAIN = disclose(domain);
@@ -106,25 +106,24 @@ constructor(
 // ===========================================
 
 export ledger COIN_COLOR: Bytes<32>;
-export ledger SHIELDED: Boolean;
 export ledger COST_SHORT: Uint<128>;   // ≤3 chars
 export ledger COST_MED: Uint<128>;     // 4 chars
 export ledger COST_LONG: Uint<128>;    // 5+ chars
 
 export circuit update_color(c: Bytes<32>): [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the owner");
+    assert_is_owner();
     COIN_COLOR = disclose(c);
 }
 
 export circuit update_costs(cost_short: Uint<128>, cost_med: Uint<128>, cost_long: Uint<128>): [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the owner");
+    assert_is_owner();
     COST_SHORT = disclose(cost_short);
     COST_MED = disclose(cost_med);
     COST_LONG = disclose(cost_long);
 }
 
 export circuit update_default_field(d: Maybe<Opaque<'string'>>): [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the owner");
+    assert_is_owner();
     DEFAULT_FIELD = disclose(d);
 }
 
@@ -133,7 +132,7 @@ export circuit update_target_and_fields(
     new_target: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>,
     kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
 ) : [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the domain owner");
+    assert_is_owner();
     for (const kv of kvs) {
         if (disclose(kv) != none<[Opaque<'string'>, Opaque<'string'>]>()) {
             fields.insert(disclose(kv.value[0]),disclose(kv.value[1]));
@@ -143,7 +142,7 @@ export circuit update_target_and_fields(
 
 }
 
-export circuit buy_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
+export circuit buy_domain_for(owner: Bytes<32>, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
     assert(len <= 32, "len must be <= 32");
     assert(len >= 1, "domain name cannot be empty");
     assert(BUY_ENABLED, "buying domains is not enabled");
@@ -181,7 +180,7 @@ export circuit buy_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len:
 }
 
 export circuit add_multiple_fields(kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>) : [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the domain owner");
+    assert_is_owner();
     for (const kv of kvs) {
         if (disclose(kv) != none<[Opaque<'string'>, Opaque<'string'>]>()) {
             fields.insert(disclose(kv.value[0]),disclose(kv.value[1]));
@@ -190,21 +189,21 @@ export circuit add_multiple_fields(kvs: Vector<10, Maybe<[Opaque<'string'>, Opaq
 }
 
 export circuit insert_field(k: Opaque<'string'>, v: Opaque<'string'>) : [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the domain owner");
+    assert_is_owner();
     fields.insert(disclose(k),disclose(v));
 }
 
 export circuit clear_field(k: Opaque<'string'>): [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the domain owner");
+    assert_is_owner();
     fields.remove(disclose(k));
 }
 
 export circuit clear_all_fields(): [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the domain owner");
+    assert_is_owner();
     fields.resetToDefault();
 }
 
-export circuit register_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
+export circuit register_domain_for(owner: Bytes<32>, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
     assert(len <= 32, "len must be <= 32");
     assert(len >= 1, "domain name cannot be empty");
 
@@ -212,7 +211,7 @@ export circuit register_domain_for(owner: ZswapCoinPublicKey, domain: Bytes<32>,
     assert(valid, "Invalid domain key padding");
 
     assert(!domains.member(disclose(domain)), "Domain already exists");
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the domain owner");
+    assert_is_owner();
 
     const d_owner = disclose(owner);
     const domain_data = DomainData {
@@ -233,7 +232,7 @@ export circuit set_resolver(domain: Bytes<32>, resolver: ContractAddress): [] {
     assert(domains.member(disclose(domain)), "Domain does not exist");
 
     const current_data = domains.lookup(disclose(domain));
-    assert(current_data.owner == ownPublicKey(), "Not the domain owner");
+    assert(current_data.owner == derive_public_key(), "Not the domain owner");
 
     const new_data = DomainData {
         current_data.owner,
@@ -244,16 +243,16 @@ export circuit set_resolver(domain: Bytes<32>, resolver: ContractAddress): [] {
 }
 
 export circuit update_domain_target(new_target: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>): [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the contract owner");
+    assert_is_owner();
 
     DOMAIN_TARGET = disclose(new_target);
 }
 
-export circuit transfer_domain(domain: Bytes<32>, new_owner: ZswapCoinPublicKey): [] {
+export circuit transfer_domain(domain: Bytes<32>, new_owner: Bytes<32>): [] {
     assert(domains.member(disclose(domain)), "Domain does not exist");
 
     const current_data = domains.lookup(disclose(domain));
-    assert(current_data.owner == ownPublicKey(), "Not the domain owner");
+    assert(current_data.owner == derive_public_key(), "Not the domain owner");
 
     const new_data = DomainData {
         disclose(new_owner),
@@ -263,7 +262,7 @@ export circuit transfer_domain(domain: Bytes<32>, new_owner: ZswapCoinPublicKey)
     domains.insert(disclose(domain), disclose(new_data));
 
     // Update ownership tracking
-    domains_owned.lookup(ownPublicKey()).remove(disclose(domain));
+    domains_owned.lookup(derive_public_key()).remove(disclose(domain));
     if (!domains_owned.member(disclose(new_owner))) {
         domains_owned.insert(disclose(new_owner), default<Set<Bytes<32>>>);
     }
@@ -271,8 +270,8 @@ export circuit transfer_domain(domain: Bytes<32>, new_owner: ZswapCoinPublicKey)
 }
 
 
-export circuit change_owner(new_owner: ZswapCoinPublicKey, new_address: UserAddress) : [] {
-    assert(DOMAIN_OWNER[0] == ownPublicKey(), "Not the contract owner");
+export circuit change_owner(new_owner: Bytes<32>, new_address: UserAddress) : [] {
+    assert_is_owner();
     DOMAIN_OWNER = [disclose(new_owner), disclose(new_address)];
 }
 
@@ -313,34 +312,19 @@ circuit is_hyphen(byte: Uint<8>) : Boolean {
 circuit is_padding(byte: Uint<8>) : Boolean {
     return byte == 255;
 }
-//circuit sendImmediateShielded(input: ShieldedCoinInfo, target: Either<ZswapCoinPublicKey, ContractAddress>, value: Uint<128>): ShieldedSendResult;
-circuit handle_payment(len: Uint<32>, input: Maybe<ShieldedCoinInfo>) : [] {
-
-    if (SHIELDED) {
-        const d_input = disclose(input);
-        if (d_len <= 3) {
-
-        } else if (d_len == 4) {
-            
-        } else {
-        }
 
 
+witness secretKey(): Bytes<32>;
 
-    } else {
-        if (d_len <= 3) {
-            receiveUnshielded(COIN_COLOR, COST_SHORT);
-            sendUnshielded(COIN_COLOR, COST_SHORT, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
-        } else if (d_len == 4) {
-            receiveUnshielded(COIN_COLOR, COST_MED);
-            sendUnshielded(COIN_COLOR, COST_MED, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
-        } else {
-            receiveUnshielded(COIN_COLOR, COST_LONG);
-            sendUnshielded(COIN_COLOR, COST_LONG, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
-        }
-    }
+circuit assert_is_owner(): [] {
+    assert(derive_public_key() == DOMAIN_OWNER[0], "Not the domain owner");
 
 }
+
+export circuit derive_public_key() : Bytes<32> {
+    return persistentHash<[Bytes<32>, Bytes<32>]>([disclose(secretKey()), kernel.self().bytes]);
+}
+
 
 
 /*
