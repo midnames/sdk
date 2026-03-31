@@ -1,5 +1,5 @@
 import "dotenv/config";
-import type { DomainEntry, BatchDeployConfig } from "./batch-config";
+import type { DomainEntry, BatchDeployConfig, DomainSettings } from "./batch-config";
 
 // ─── Midnight SDK Imports ───────────────────────────────────────────────────
 import * as ledger from "@midnight-ntwrk/ledger-v8";
@@ -468,6 +468,27 @@ const configureProviders = async (
 };
 
 // ─── Contract Deployment ────────────────────────────────────────────────────
+const DEFAULT_DOMAIN_SETTINGS: Required<DomainSettings> = {
+  coinColor: nativeToken().raw.toString().replace("0x", ""),
+  costs: { short: 100n, medium: 10n, long: 1n },
+  buyEnabled: true,
+};
+
+function resolveDomainSettings(
+  perDomain?: DomainSettings,
+  globalDefaults?: DomainSettings,
+): Required<DomainSettings> {
+  return {
+    coinColor: perDomain?.coinColor ?? globalDefaults?.coinColor ?? DEFAULT_DOMAIN_SETTINGS.coinColor,
+    costs: {
+      short: perDomain?.costs?.short ?? globalDefaults?.costs?.short ?? DEFAULT_DOMAIN_SETTINGS.costs.short,
+      medium: perDomain?.costs?.medium ?? globalDefaults?.costs?.medium ?? DEFAULT_DOMAIN_SETTINGS.costs.medium,
+      long: perDomain?.costs?.long ?? globalDefaults?.costs?.long ?? DEFAULT_DOMAIN_SETTINGS.costs.long,
+    },
+    buyEnabled: perDomain?.buyEnabled ?? globalDefaults?.buyEnabled ?? DEFAULT_DOMAIN_SETTINGS.buyEnabled,
+  };
+}
+
 async function deployLeafContract(
   providers: ContractProviders,
   parentDomain: string | null,
@@ -477,8 +498,12 @@ async function deployLeafContract(
   secretKey: string,
   domain: string | null,
   initialFields: Array<[string, string]> = [],
+  settings: Required<DomainSettings> = DEFAULT_DOMAIN_SETTINGS,
 ) {
   logger.info(`Deploying leaf contract for domain: ${domain || "root"}`);
+  logger.info(`  coinColor: ${settings.coinColor}`);
+  logger.info(`  costs: short=${settings.costs.short}, medium=${settings.costs.medium}, long=${settings.costs.long}`);
+  logger.info(`  buyEnabled: ${settings.buyEnabled}`);
 
   // Build kvs parameter: Vector<10, Maybe<[string, string]>>
   const kvs: Array<{ is_some: boolean; value: [string, string] }> = [];
@@ -500,12 +525,12 @@ async function deployLeafContract(
       parseContractAddress(parentResolver),
       [targetBytes, Leaf.AddressType.ZswapCPKAddr],
       domain ? { is_some: true, value: domainToKey(domain).key } : { is_some: false, value: new Uint8Array(32) },
-      new Uint8Array(Buffer.from(nativeToken().raw.toString().replace("0x", ""), "hex")),
-      100n,
-      10n,
-      1n,
+      new Uint8Array(Buffer.from(settings.coinColor, "hex")),
+      settings.costs.short,
+      settings.costs.medium,
+      settings.costs.long,
       { is_some: false, value: "" }, // DEFAULT_FIELD
-      true, // BUY_ENABLED
+      settings.buyEnabled,
       { bytes: ownerAddress },
       kvs,
     ],
@@ -800,6 +825,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         initialPrivateState: { secretKey: Buffer.from(coinPublicKeyBytes).toString("hex") },
       });
     } else {
+      const tldSettings = resolveDomainSettings(undefined, config.defaults);
       rootContract = await deployLeafContract(
         providers,
         null,
@@ -808,6 +834,8 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         ownerAddressBytes,
         secretKeyHex,
         tld,
+        [],
+        tldSettings,
       );
     }
     deployedContracts.set(tld, rootContract);
@@ -838,6 +866,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         );
       }
 
+      const domainSettings = resolveDomainSettings(entry.settings, config.defaults);
       const domainContract = await deployLeafContract(
         providers,
         parentDomainPath,
@@ -847,6 +876,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         secretKeyHex,
         domainName,
         entry.fields,
+        domainSettings,
       );
 
       deployedContracts.set(entry.domain, domainContract);
