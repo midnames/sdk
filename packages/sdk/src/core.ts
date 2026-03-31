@@ -224,12 +224,8 @@ async function getDomainInfoInContract(
       return failure(new DomainNotFoundError(domainName));
     }
     const domainData = contractLedger.domains.lookup(domainToKey(domainName).key);
-    const ownerCoinPublicKey = new ShieldedCoinPublicKey(
-      Buffer.from(domainData.owner)
-    );
-    const ownerAddress = ShieldedCoinPublicKey.codec
-      .encode(getNetworkId() as any, ownerCoinPublicKey)
-      .asString();
+    // domainData.owner is the derived key (persistentHash(secretKey)), not a coin public key
+    const ownerAddress = bytesToHex(domainData.owner);
     return success({
       owner: ownerAddress,
       resolver: formatContractAddress(domainData.resolver.bytes),
