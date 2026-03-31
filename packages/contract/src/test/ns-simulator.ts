@@ -18,7 +18,7 @@ export class NSSimulator {
   readonly contract: Contract<DNSPrivateState>;
   circuitContext: CircuitContext<DNSPrivateState>;
 
-  constructor(secretKey: Uint8Array = new Uint8Array(32)) {
+  constructor(secretKey: string = "0".repeat(64)) {
     this.contract = new Contract<DNSPrivateState>(witnesses);
     const parentDomain: Maybe<Uint8Array> = { is_some: false, value: new Uint8Array(32) };
     const parentResolver = { bytes: new Uint8Array(32) };
@@ -32,7 +32,7 @@ export class NSSimulator {
     const buyEnabled = true;
     const ownerAddress = { bytes: new Uint8Array(32) };
     const noneKv: Maybe<[string, string]> = { is_some: false, value: ["", ""] };
-    const kvs: Maybe<[string, string]>[] = Array(10).fill(noneKv);
+    const kvs: Maybe<[string, string]>[] = Array(6).fill(noneKv);
 
     const {
       currentPrivateState,
@@ -73,17 +73,6 @@ export class NSSimulator {
     return this.getLedger().DOMAIN_OWNER[0];
   }
 
-  public buyDomainFor(owner: Uint8Array, domain: Uint8Array, len: bigint, resolver: { bytes: Uint8Array }): Ledger {
-    this.circuitContext = this.contract.impureCircuits.buy_domain_for(
-      this.circuitContext,
-      owner,
-      domain,
-      len,
-      resolver
-    ).context;
-    return ledger(this.circuitContext.currentQueryContext.state);
-  }
-
   public registerDomainFor(owner: Uint8Array, domain: Uint8Array, len: bigint, resolver: { bytes: Uint8Array }): Ledger {
     this.circuitContext = this.contract.impureCircuits.register_domain_for(
       this.circuitContext,
@@ -122,15 +111,6 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public insertField(key: string, value: string): Ledger {
-    this.circuitContext = this.contract.impureCircuits.insert_field(
-      this.circuitContext,
-      key,
-      value
-    ).context;
-    return ledger(this.circuitContext.currentQueryContext.state);
-  }
-
   public clearField(key: string): Ledger {
     this.circuitContext = this.contract.impureCircuits.clear_field(
       this.circuitContext,
@@ -162,12 +142,13 @@ export class NSSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public updateCosts(costShort: bigint, costMed: bigint, costLong: bigint): Ledger {
+  public updateCosts(costShort: bigint, costMed: bigint, costLong: bigint, enabled: boolean = true): Ledger {
     this.circuitContext = this.contract.impureCircuits.update_costs(
       this.circuitContext,
       costShort,
       costMed,
-      costLong
+      costLong,
+      enabled
     ).context;
     return ledger(this.circuitContext.currentQueryContext.state);
   }

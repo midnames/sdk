@@ -9,15 +9,7 @@
  */
 
 import type { Observable, Subject } from 'rxjs';
-
-/**
- * Target address - domains can point to either a wallet (CoinPublicKey) or another contract
- */
-export interface EitherTarget {
-  is_left: boolean;
-  left: { bytes: Uint8Array };   // CoinPublicKey (wallet address)
-  right: { bytes: Uint8Array };  // ContractAddress
-}
+import type { DomainTarget } from './types.js';
 
 /**
  * Subdomain data stored in the parent contract
@@ -32,7 +24,7 @@ export interface SubdomainData {
  */
 export interface DomainState {
   contractAddress: string;
-  target: EitherTarget;
+  target: DomainTarget;
   fields: Map<string, string>;
   subdomains: Map<string, SubdomainData>;
   coinColor: Uint8Array;
@@ -41,6 +33,7 @@ export interface DomainState {
     medium: bigint;  // 4 chars
     long: bigint;    // 5+ chars
   };
+  buyEnabled: boolean;
 }
 
 /**
@@ -87,7 +80,7 @@ export interface LeafContractControllerInterface {
   readonly operations$: Subject<OperationStatus>;
 
   // Operations
-  updateTarget(target: EitherTarget): Promise<TxResult>;
+  updateTarget(target: DomainTarget): Promise<TxResult>;
   insertField(key: string, value: string): Promise<TxResult>;
   clearField(key: string): Promise<TxResult>;
   clearAllFields(): Promise<TxResult>;

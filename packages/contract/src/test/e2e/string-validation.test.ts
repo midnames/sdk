@@ -451,7 +451,7 @@ describe("string validation — buy_domain_for", () => {
     const name = "BUYTEST";
     const key = createDomainKey(stringToBytes(name));
     await expect(
-      callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
+      callCircuit(e2e.ctx, e2e.tldAddress, "register_domain_for", [
         ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
@@ -464,7 +464,7 @@ describe("string validation — buy_domain_for", () => {
     const name = "-buytest";
     const key = createDomainKey(stringToBytes(name));
     await expect(
-      callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
+      callCircuit(e2e.ctx, e2e.tldAddress, "register_domain_for", [
         ownerDerivedKeyForTest,
         key,
         BigInt(name.length),
@@ -477,7 +477,7 @@ describe("string validation — buy_domain_for", () => {
     const name = "buy@test";
     const key = createDomainKey(stringToBytes(name));
     await expect(
-      callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
+      callCircuit(e2e.ctx, e2e.tldAddress, "register_domain_for", [
         ownerDerivedKeyForTest,
         key,
         BigInt(name.length),

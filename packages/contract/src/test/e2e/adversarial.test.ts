@@ -102,7 +102,7 @@ describe("adversarial — unauthorized wallet", () => {
 
   it("rejects update_costs from non-owner", async () => {
     await expect(
-      callCircuit(attackerCtx, targetAddress, "update_costs", [0n, 0n, 0n]),
+      callCircuit(attackerCtx, targetAddress, "update_costs", [0n, 0n, 0n, true]),
     ).rejects.toThrow();
   });
 
@@ -122,12 +122,11 @@ describe("adversarial — unauthorized wallet", () => {
     ).rejects.toThrow();
   });
 
-  it("rejects insert_field from non-owner", async () => {
+  it("rejects add_multiple_fields from non-owner", async () => {
+    const kvs = Array(10).fill({ is_some: false, value: ["", ""] });
+    kvs[0] = { is_some: true, value: ["evil", "payload"] };
     await expect(
-      callCircuit(attackerCtx, targetAddress, "insert_field", [
-        "evil",
-        "payload",
-      ]),
+      callCircuit(attackerCtx, targetAddress, "add_multiple_fields", [kvs]),
     ).rejects.toThrow();
   });
 
@@ -150,26 +149,6 @@ describe("adversarial — unauthorized wallet", () => {
     await expect(
       callCircuit(attackerCtx, targetAddress, "update_domain_target", [
         newTarget,
-      ]),
-    ).rejects.toThrow();
-  });
-
-  it("rejects update_target_and_fields from non-owner", async () => {
-    const newTarget = {
-      is_left: true,
-      left: { bytes: new Uint8Array(32).fill(0xee) },
-      right: {
-        is_left: true,
-        left: { bytes: new Uint8Array(32) },
-        right: { bytes: new Uint8Array(32) },
-      },
-    };
-    const kvs = Array(10).fill({ is_some: false, value: ["", ""] });
-    kvs[0] = { is_some: true, value: ["evil", "data"] };
-    await expect(
-      callCircuit(attackerCtx, targetAddress, "update_target_and_fields", [
-        newTarget,
-        kvs,
       ]),
     ).rejects.toThrow();
   });
@@ -208,10 +187,17 @@ describe("adversarial — unauthorized wallet", () => {
   });
 });
 
-describe("adversarial — buy_domain_for disabled", () => {
+describe("adversarial — register_domain_for disabled", () => {
   let disabledBuyAddress: string;
+  let buyerCtx: TestContext;
 
   beforeAll(async () => {
+    buyerCtx = await setupAdditionalWallet(
+      e2e.ctx.networkConfig,
+      ATTACKER_MNEMONIC,
+      "buyer-nobuy",
+    );
+
     const contract = await deployLeafContract(e2e.ctx, {
       parentDomain: "nobuy",
       parentResolverAddress: e2e.tldAddress,
@@ -221,13 +207,19 @@ describe("adversarial — buy_domain_for disabled", () => {
     });
     disabledBuyAddress = contract.deployTxData.public.contractAddress;
     await syncAndWait(e2e.ctx);
-  }, 120_000);
+  }, 300_000);
 
-  it("rejects buy_domain_for when BUY_ENABLED is false", async () => {
+  afterAll(async () => {
+    if (buyerCtx) {
+      try { await buyerCtx.walletContext.wallet.stop(); } catch { /* ignore */ }
+    }
+  }, 60_000);
+
+  it("rejects register_domain_for from non-owner when BUY_ENABLED is false", async () => {
     const { key, len } = domainToKey("attempt");
     await expect(
-      callCircuit(e2e.ctx, disabledBuyAddress, "buy_domain_for", [
-        e2e.ownerDerivedKey,
+      callCircuit(buyerCtx, disabledBuyAddress, "register_domain_for", [
+        getOwnerCoinPublicKey(buyerCtx),
         key,
         len,
         parseContractAddress(ZERO_ADDR),
@@ -241,3 +233,4 @@ describe("adversarial — buy_domain_for disabled", () => {
     expect(state.BUY_ENABLED).toBe(false);
   });
 });
+

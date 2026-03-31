@@ -70,7 +70,7 @@ describe("buy_domain_for — token transfers", () => {
     const buyerBefore = await getUnshieldedBalance(buyerCtx.walletContext.wallet);
 
     const { key, len } = domainToKey("longtx");
-    await callCircuit(buyerCtx, shopAddress, "buy_domain_for", [
+    await callCircuit(buyerCtx, shopAddress, "register_domain_for", [
       buyerPubKey,
       key,
       len,
@@ -92,7 +92,7 @@ describe("buy_domain_for — token transfers", () => {
     const buyerBefore = await getUnshieldedBalance(buyerCtx.walletContext.wallet);
 
     const { key, len } = domainToKey("abc");
-    await callCircuit(buyerCtx, shopAddress, "buy_domain_for", [
+    await callCircuit(buyerCtx, shopAddress, "register_domain_for", [
       buyerPubKey,
       key,
       len,
@@ -116,7 +116,7 @@ describe("buy_domain_for — token transfers", () => {
     const buyerBefore = await getUnshieldedBalance(buyerCtx.walletContext.wallet);
 
     const { key, len } = domainToKey("four");
-    await callCircuit(buyerCtx, shopAddress, "buy_domain_for", [
+    await callCircuit(buyerCtx, shopAddress, "register_domain_for", [
       buyerPubKey,
       key,
       len,

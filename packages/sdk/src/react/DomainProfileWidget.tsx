@@ -200,8 +200,11 @@ export function DomainProfileWidget({
 
   const resolvedTarget = useMemo(() => {
     if (!data?.resolvedTarget) return null;
-    if (epk) return deriveShieldedAddress(data.resolvedTarget, epk) || data.resolvedTarget;
-    return data.resolvedTarget;
+    const target = data.resolvedTarget;
+    if (target.type === 'shielded' && epk) {
+      return deriveShieldedAddress(target.address, epk) || target.address;
+    }
+    return target.address;
   }, [data?.resolvedTarget, epk]);
 
   const status = useMemo<'registered' | 'available' | 'unknown' | 'error'>(() => {

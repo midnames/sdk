@@ -4,7 +4,7 @@ import { ShieldedCoinPublicKey } from "@midnight-ntwrk/wallet-sdk-address-format
 import { ledger, type DomainData } from "@midnames/ns";
 import { formatContractAddress, bytesToHex } from "./utils/address.js";
 import { normalizeDomain, parseFullDomain, DEFAULT_TLD, isTLD, domainToKey, keyToDomain } from "./utils/domain.js";
-import type { DomainInfo, DomainSettings, DomainProfileData } from "./types.js";
+import type { DomainInfo, DomainSettings, DomainProfileData, DomainTarget } from "./types.js";
 import { Result, success, failure, wrapAsync, chain } from "./results.js";
 import {
   NetworkError,
@@ -25,18 +25,19 @@ function getDefaultTldAddress(): string {
 
 function getTargetFromLedger(
   contractLedger: ReturnType<typeof ledger>
-): string {
+): DomainTarget {
   const target = contractLedger.DOMAIN_TARGET;
+  // Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>
   if (target.is_left) {
-    const coinPublicKey = new ShieldedCoinPublicKey(
-      Buffer.from(target.left.bytes)
-    );
-    return ShieldedCoinPublicKey.codec
-      .encode(getNetworkId() as any, coinPublicKey)
-      .asString();
-  } else {
-    return formatContractAddress(target.right.bytes);
+    return { type: 'contract', address: formatContractAddress(target.left.bytes) };
   }
+  const inner = target.right;
+  if (inner.is_left) {
+    const coinPublicKey = new ShieldedCoinPublicKey(Buffer.from(inner.left.bytes));
+    const address = ShieldedCoinPublicKey.codec.encode(getNetworkId() as any, coinPublicKey).asString();
+    return { type: 'shielded', address };
+  }
+  return { type: 'unshielded', address: bytesToHex(inner.right.bytes) };
 }
 
 export async function queryContractStateSafely(
@@ -56,8 +57,18 @@ export async function queryContractStateSafely(
 async function traverseDomainHierarchy(
   publicDataProvider: PublicDataProvider,
   fullDomain: string,
+  returnFinalTarget: true
+): Promise<Result<DomainTarget>>;
+async function traverseDomainHierarchy(
+  publicDataProvider: PublicDataProvider,
+  fullDomain: string,
+  returnFinalTarget?: false
+): Promise<Result<string>>;
+async function traverseDomainHierarchy(
+  publicDataProvider: PublicDataProvider,
+  fullDomain: string,
   returnFinalTarget: boolean = false
-): Promise<Result<string>> {
+): Promise<Result<string | DomainTarget>> {
   try {
     const tldAddress = getDefaultTldAddress();
     const domainParts = fullDomain.split(".");
@@ -132,7 +143,7 @@ async function getResolverAddress(
 export async function resolveDomain(
   domain: string,
   options: { provider?: PublicDataProvider; tldAddress?: string } = {}
-): Promise<Result<string>> {
+): Promise<Result<DomainTarget>> {
   // Simple validation
   const normalized = normalizeDomain(domain);
   if (!normalized.endsWith(`.${DEFAULT_TLD}`)) {
@@ -155,6 +166,46 @@ export async function resolveDomain(
   });
 }
 
+export async function resolveDefault(
+  domain: string,
+  options: { provider?: PublicDataProvider } = {}
+): Promise<Result<string | DomainTarget>> {
+  const normalized = normalizeDomain(domain);
+  if (!normalized.endsWith(`.${DEFAULT_TLD}`)) {
+    return failure(
+      new InvalidDomainError(domain, "Domain must end with .night", undefined)
+    );
+  }
+
+  const publicDataProvider = options.provider || getDefaultProvider();
+
+  try {
+    // Resolve the domain to its contract
+    const infoResult = await getDomainInfo(normalized, { provider: publicDataProvider });
+    if (!infoResult.success) return failure(infoResult.error);
+
+    const ledgerResult = await readContractLedger(publicDataProvider, infoResult.data.resolver);
+    if (!ledgerResult.success) return failure(ledgerResult.error);
+
+    const defaultField = ledgerResult.data.DEFAULT_FIELD;
+    if (defaultField.is_some) {
+      const fieldKey = defaultField.value;
+      if (ledgerResult.data.fields.member(fieldKey)) {
+        return success(ledgerResult.data.fields.lookup(fieldKey));
+      }
+    }
+
+    return success(getTargetFromLedger(ledgerResult.data));
+  } catch (error) {
+    return failure(
+      new NetworkError(
+        `Failed to resolve default: ${error instanceof Error ? error.message : String(error)}`,
+        error
+      )
+    );
+  }
+}
+
 /** Looks up a subdomain's info (owner, resolver) within a specific parent contract. */
 async function getDomainInfoInContract(
   contractAddress: string,
@@ -174,7 +225,7 @@ async function getDomainInfoInContract(
     }
     const domainData = contractLedger.domains.lookup(domainToKey(domainName).key);
     const ownerCoinPublicKey = new ShieldedCoinPublicKey(
-      Buffer.from(domainData.owner.bytes)
+      Buffer.from(domainData.owner)
     );
     const ownerAddress = ShieldedCoinPublicKey.codec
       .encode(getNetworkId() as any, ownerCoinPublicKey)
@@ -291,6 +342,7 @@ export async function getDomainSettings(
           medium: ledgerResult.data.COST_MED,
           long: ledgerResult.data.COST_LONG,
         },
+        buyEnabled: ledgerResult.data.BUY_ENABLED,
       });
     }
 
@@ -307,6 +359,7 @@ export async function getDomainSettings(
         medium: ledgerResult.data.COST_MED,
         long: ledgerResult.data.COST_LONG,
       },
+      buyEnabled: ledgerResult.data.BUY_ENABLED,
     });
   } catch (error) {
     return failure(
@@ -347,6 +400,7 @@ export async function getDomainProfile(
             medium: ledgerResult.data.COST_MED,
             long: ledgerResult.data.COST_LONG,
           },
+          buyEnabled: ledgerResult.data.BUY_ENABLED,
         };
         return success({
           fullDomain: normalized,

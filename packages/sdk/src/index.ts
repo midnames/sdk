@@ -12,10 +12,11 @@ export {
   updateDomainTarget,
   updateDomainColor,
   updateDomainCosts,
+  updateBuyEnabled,
+  updateDomainCostsAndBuyEnabled,
   transferDomainOwnership,
   setDomainResolver,
   registerDomainFor,
-  buyDomainFor,
   changeDomainOwner,
 } from './operations.js';
 export * from './results.js';

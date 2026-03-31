@@ -474,7 +474,7 @@ async function deployLeafContract(
   parentResolver: string,
   targetBytes: Uint8Array,
   ownerAddress: Uint8Array,
-  secretKey: Uint8Array,
+  secretKey: string,
   domain: string | null,
   initialFields: Array<[string, string]> = [],
 ) {
@@ -482,10 +482,10 @@ async function deployLeafContract(
 
   // Build kvs parameter: Vector<10, Maybe<[string, string]>>
   const kvs: Array<{ is_some: boolean; value: [string, string] }> = [];
-  for (const [key, value] of initialFields.slice(0, 10)) {
+  for (const [key, value] of initialFields.slice(0, 6)) {
     kvs.push({ is_some: true, value: [key, value] });
   }
-  while (kvs.length < 10) {
+  while (kvs.length < 6) {
     kvs.push({ is_some: false, value: ["", ""] });
   }
 
@@ -532,7 +532,7 @@ async function buyDomainFor(
   const { key: domainKey, len: domainLen } = domainToKey(domainName);
   const unprovenCallTxData = await createUnprovenCallTx(providers, {
     compiledContract: leafContractInstance as any,
-    circuitId: "buy_domain_for",
+    circuitId: "register_domain_for",
     contractAddress: contract.deployTxData.public.contractAddress,
     args: [
       ownerDerivedKey,
@@ -763,6 +763,8 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
       ),
     );
 
+    const secretKeyHex = Buffer.from(coinPublicKeyBytes).toString("hex");
+
     // Track deployed contracts: domain -> contract
     const deployedContracts: Map<
       string,
@@ -777,7 +779,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         contractAddress: address,
         compiledContract: leafContractInstance as any,
         privateStateId: "namespacePrivateState",
-        initialPrivateState: { secretKey: coinPublicKeyBytes },
+        initialPrivateState: { secretKey: Buffer.from(coinPublicKeyBytes).toString("hex") },
       });
       deployedContracts.set(domain, found);
     }
@@ -795,7 +797,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         contractAddress: config.tldContractAddress,
         compiledContract: leafContractInstance as any,
         privateStateId: "namespacePrivateState",
-        initialPrivateState: { secretKey: coinPublicKeyBytes },
+        initialPrivateState: { secretKey: Buffer.from(coinPublicKeyBytes).toString("hex") },
       });
     } else {
       rootContract = await deployLeafContract(
@@ -804,7 +806,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         "0x" + ZERO_ADDR,
         coinPublicKeyBytes,
         ownerAddressBytes,
-        coinPublicKeyBytes,
+        secretKeyHex,
         tld,
       );
     }
@@ -842,7 +844,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         parentContract.deployTxData.public.contractAddress,
         coinPublicKeyBytes,
         ownerAddressBytes,
-        coinPublicKeyBytes,
+        secretKeyHex,
         domainName,
         entry.fields,
       );

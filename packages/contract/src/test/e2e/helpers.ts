@@ -84,17 +84,18 @@ export async function deployLeafContract(
   } = opts;
 
   const kvs: Array<{ is_some: boolean; value: [string, string] }> = [];
-  for (const [key, value] of fields.slice(0, 10)) {
+  for (const [key, value] of fields.slice(0, 6)) {
     kvs.push({ is_some: true, value: [key, value] });
   }
-  while (kvs.length < 10) {
+  while (kvs.length < 6) {
     kvs.push({ is_some: false, value: ["", ""] });
   }
 
+  const deploySecretKey = getSecretKey(ctx);
   const deployed = await deployContract(ctx.providers, {
     compiledContract: leafContractInstance as any,
     privateStateId: "namespacePrivateState",
-    initialPrivateState: { secretKey: getSecretKey(ctx) } as DNSPrivateState,
+    initialPrivateState: { secretKey: deploySecretKey } as DNSPrivateState,
     args: [
       parentDomain
         ? { is_some: true, value: domainToKey(parentDomain).key }
@@ -172,9 +173,9 @@ export async function queryLedgerState(
 
 // ─── Key helpers ────────────────────────────────────────────────────────────
 
-export function getSecretKey(ctx: TestContext): Uint8Array {
+export function getSecretKey(ctx: TestContext): string {
   const pk = getOwnerCoinPublicKey(ctx);
-  return new Uint8Array(createHash("sha256").update(pk).digest());
+  return createHash("sha256").update(pk).digest("hex");
 }
 
 export async function getDerivedPublicKey(ctx: TestContext, contractAddress: string): Promise<Uint8Array> {

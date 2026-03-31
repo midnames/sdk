@@ -12,11 +12,12 @@ import { isWalletAddress } from "./utils/address.js";
 import { getNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 
 import { Leaf, MANAGED_DIR, witnesses } from "@midnames/ns";
+import type { DomainTarget } from "./types.js";
 import type { Result } from "./results.js";
 import { success, failure } from "./results.js";
 import { NetworkError, InvalidDomainError } from "./errors.js";
 import { normalizeDomain, parseFullDomain, domainToKey } from "./utils/domain.js";
-import { getDomainInfo } from "./core.js";
+import { getDomainInfo, getDomainSettings } from "./core.js";
 
 function validateDomain(domain: string): Result<string> {
   const normalized = normalizeDomain(domain);
@@ -113,30 +114,32 @@ function parseAddressToBytes(address: string): { bytes: Uint8Array } {
   }
 }
 
-function formatTargetForContract(address: string) {
-  const parsed = parseAddressToBytes(address);
-  if (isWalletAddress(address)) {
-    // ZswapCoinPublicKey → right.left
-    return {
-      is_left: false,
-      left: { bytes: new Uint8Array(32) },
-      right: {
+function formatTargetForContract(target: DomainTarget) {
+  const parsed = parseAddressToBytes(target.address);
+  const empty = { bytes: new Uint8Array(32) };
+  switch (target.type) {
+    case 'contract':
+      // ContractAddress → left
+      return {
         is_left: true,
         left: parsed,
-        right: { bytes: new Uint8Array(32) },
-      },
-    };
+        right: { is_left: true, left: empty, right: empty },
+      };
+    case 'shielded':
+      // ZswapCoinPublicKey → right.left
+      return {
+        is_left: false,
+        left: empty,
+        right: { is_left: true, left: parsed, right: empty },
+      };
+    case 'unshielded':
+      // UserAddress → right.right
+      return {
+        is_left: false,
+        left: empty,
+        right: { is_left: false, left: empty, right: parsed },
+      };
   }
-  // ContractAddress → left
-  return {
-    is_left: true,
-    left: parsed,
-    right: {
-      is_left: true,
-      left: { bytes: new Uint8Array(32) },
-      right: { bytes: new Uint8Array(32) },
-    },
-  };
 }
 
 // --- Domain operations ---
@@ -148,7 +151,7 @@ export async function insertField(
   providers: ContractProviders<Leaf.Contract>,
 ): Promise<Result<{ transactionId: string }>> {
   return withLeafContract(domain, providers, "insert field", async (contract) =>
-    txId(await contract.callTx.insert_field(key, value)),
+    txId(await contract.callTx.add_multiple_fields(buildKvs([[key, value]]))),
   );
 }
 
@@ -189,11 +192,11 @@ export async function addMultipleFields(
 
 export async function updateDomainTarget(
   domain: string,
-  targetAddress: string,
+  target: DomainTarget,
   providers: ContractProviders<Leaf.Contract>,
 ): Promise<Result<{ transactionId: string }>> {
   return withLeafContract(domain, providers, "update domain target", async (contract) =>
-    txId(await contract.callTx.update_domain_target(formatTargetForContract(targetAddress))),
+    txId(await contract.callTx.update_domain_target(formatTargetForContract(target))),
   );
 }
 
@@ -218,8 +221,37 @@ export async function updateDomainCosts(
   if (costs.short < BigInt(0) || costs.medium < BigInt(0) || costs.long < BigInt(0)) {
     return failure(new NetworkError("Costs must be non-negative"));
   }
+  const settingsResult = await getDomainSettings(domain, { provider: providers.publicDataProvider });
+  if (!settingsResult.success) return failure(settingsResult.error);
   return withLeafContract(domain, providers, "update domain costs", async (contract) =>
-    txId(await contract.callTx.update_costs(costs.short, costs.medium, costs.long)),
+    txId(await contract.callTx.update_costs(costs.short, costs.medium, costs.long, settingsResult.data.buyEnabled)),
+  );
+}
+
+export async function updateBuyEnabled(
+  domain: string,
+  enabled: boolean,
+  providers: ContractProviders<Leaf.Contract>,
+): Promise<Result<{ transactionId: string }>> {
+  const settingsResult = await getDomainSettings(domain, { provider: providers.publicDataProvider });
+  if (!settingsResult.success) return failure(settingsResult.error);
+  const { costs } = settingsResult.data;
+  return withLeafContract(domain, providers, "update buy enabled", async (contract) =>
+    txId(await contract.callTx.update_costs(costs.short, costs.medium, costs.long, enabled)),
+  );
+}
+
+export async function updateDomainCostsAndBuyEnabled(
+  domain: string,
+  costs: { short: bigint; medium: bigint; long: bigint },
+  enabled: boolean,
+  providers: ContractProviders<Leaf.Contract>,
+): Promise<Result<{ transactionId: string }>> {
+  if (costs.short < BigInt(0) || costs.medium < BigInt(0) || costs.long < BigInt(0)) {
+    return failure(new NetworkError("Costs must be non-negative"));
+  }
+  return withLeafContract(domain, providers, "update domain costs and buy enabled", async (contract) =>
+    txId(await contract.callTx.update_costs(costs.short, costs.medium, costs.long, enabled)),
   );
 }
 
@@ -269,24 +301,6 @@ export async function registerDomainFor(
   });
 }
 
-export async function buyDomainFor(
-  parentDomain: string,
-  ownerDerivedKey: Uint8Array,
-  subdomainName: string,
-  resolverAddress: string,
-  _paymentAmount: bigint,
-  providers: ContractProviders<Leaf.Contract>,
-): Promise<Result<{ transactionId: string }>> {
-  return withLeafContract(parentDomain, providers, "buy domain", async (contract) => {
-    const { key, len } = domainToKey(subdomainName);
-    return txId(await contract.callTx.buy_domain_for(
-      ownerDerivedKey,
-      key,
-      len,
-      parseAddressToBytes(resolverAddress),
-    ));
-  });
-}
 
 export async function changeDomainOwner(
   domain: string,

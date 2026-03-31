@@ -101,7 +101,7 @@ describe("buy_domain_for (paid purchase)", () => {
     await syncAndWait(e2e.ctx);
 
     const { key, len } = domainToKey(domainName);
-    await callCircuit(e2e.ctx, e2e.tldAddress, "buy_domain_for", [
+    await callCircuit(e2e.ctx, e2e.tldAddress, "register_domain_for", [
       e2e.ownerDerivedKey,
       key,
       len,
@@ -133,7 +133,9 @@ describe("fields management", () => {
   }, 120_000);
 
   it("insert_field adds a field", async () => {
-    await callCircuit(e2e.ctx, fieldsAddress, "insert_field", ["name", "Alice"]);
+    const kvs = Array(10).fill({ is_some: false, value: ["", ""] });
+    kvs[0] = { is_some: true, value: ["name", "Alice"] };
+    await callCircuit(e2e.ctx, fieldsAddress, "add_multiple_fields", [kvs]);
     await syncAndWait(e2e.ctx);
 
     const state = await queryLedgerState(e2e.ctx, fieldsAddress);
@@ -233,7 +235,7 @@ describe("owner operations", () => {
   }, 120_000);
 
   it("update_costs changes cost tiers", async () => {
-    await callCircuit(e2e.ctx, ownedAddress, "update_costs", [200n, 100n, 50n]);
+    await callCircuit(e2e.ctx, ownedAddress, "update_costs", [200n, 100n, 50n, true]);
     await syncAndWait(e2e.ctx);
 
     const state = await queryLedgerState(e2e.ctx, ownedAddress);

@@ -72,7 +72,7 @@ constructor(
     default_field: Maybe<Opaque<'string'>>,
     buy_enabled: Boolean,
     owner_address: UserAddress,
-    kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
+    kvs: Vector<6, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
 ) {
     const target_type = disclose(target[1]);
     if (target_type == AddressType.ContractAddr) {
@@ -115,73 +115,18 @@ export circuit update_color(c: Bytes<32>): [] {
     COIN_COLOR = disclose(c);
 }
 
-export circuit update_costs(cost_short: Uint<128>, cost_med: Uint<128>, cost_long: Uint<128>): [] {
+export circuit update_costs(cost_short: Uint<128>, cost_med: Uint<128>, cost_long: Uint<128>, enabled: Boolean): [] {
     assert_is_owner();
     COST_SHORT = disclose(cost_short);
     COST_MED = disclose(cost_med);
     COST_LONG = disclose(cost_long);
+    BUY_ENABLED = disclose(enabled);
+
 }
 
 export circuit update_default_field(d: Maybe<Opaque<'string'>>): [] {
     assert_is_owner();
     DEFAULT_FIELD = disclose(d);
-}
-
-export circuit update_buy_enabled(enabled: Boolean): [] {
-    assert_is_owner();
-    BUY_ENABLED = disclose(enabled);
-}
-
-
-export circuit update_target_and_fields(
-    new_target: Either<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>,
-    kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
-) : [] {
-    assert_is_owner();
-    for (const kv of kvs) {
-        if (disclose(kv) != none<[Opaque<'string'>, Opaque<'string'>]>()) {
-            fields.insert(disclose(kv.value[0]),disclose(kv.value[1]));
-        }
-    }
-        DOMAIN_TARGET = disclose(new_target);
-
-}
-
-export circuit buy_domain_for(owner: Bytes<32>, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
-    assert(len <= 32, "len must be <= 32");
-    assert(len >= 1, "domain name cannot be empty");
-    assert(BUY_ENABLED, "buying domains is not enabled");
-
-    const valid = verify_domain_path(domain, len);
-    assert(valid, "Invalid domain key padding");
-
-    assert(!domains.member(disclose(domain)), "Domain already exists");
-
-    const d_len = disclose(len);
-    // pay per lenght of domain
-    if (d_len <= 3) {
-        receiveUnshielded(COIN_COLOR, COST_SHORT);
-        sendUnshielded(COIN_COLOR, COST_SHORT, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
-    } else if (d_len == 4) {
-        receiveUnshielded(COIN_COLOR, COST_MED);
-        sendUnshielded(COIN_COLOR, COST_MED, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
-    } else {
-        receiveUnshielded(COIN_COLOR, COST_LONG);
-        sendUnshielded(COIN_COLOR, COST_LONG, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
-    }
-
-    const d_owner = disclose(owner);
-        const domain_data = DomainData {
-        d_owner,
-        disclose(resolver)
-    };
-    domains.insert(disclose(domain), disclose(domain_data));
-    
-    // Track domains owned by address
-    if (!domains_owned.member(d_owner)) {
-        domains_owned.insert(d_owner, default<Set<Bytes<32>>>);
-    }
-    domains_owned.lookup(d_owner).insert(disclose(domain));
 }
 
 export circuit add_multiple_fields(kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>) : [] {
@@ -191,11 +136,6 @@ export circuit add_multiple_fields(kvs: Vector<10, Maybe<[Opaque<'string'>, Opaq
             fields.insert(disclose(kv.value[0]),disclose(kv.value[1]));
         }
     }
-}
-
-export circuit insert_field(k: Opaque<'string'>, v: Opaque<'string'>) : [] {
-    assert_is_owner();
-    fields.insert(disclose(k),disclose(v));
 }
 
 export circuit clear_field(k: Opaque<'string'>): [] {
@@ -208,29 +148,40 @@ export circuit clear_all_fields(): [] {
     fields.resetToDefault();
 }
 
-export circuit register_domain_for(owner: Bytes<32>, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
-    assert(len <= 32, "len must be <= 32");
-    assert(len >= 1, "domain name cannot be empty");
+ export circuit register_domain_for(owner: Bytes<32>, domain: Bytes<32>, len: Uint<32>, resolver: ContractAddress): [] {
+      assert(len <= 32, "len must be <= 32");
+      assert(len >= 1, "domain name cannot be empty");
 
-    const valid = verify_domain_path(domain, len);
-    assert(valid, "Invalid domain key padding");
+      const valid = verify_domain_path(domain, len);
+      assert(valid, "Invalid domain key padding");
+      assert(!domains.member(disclose(domain)), "Domain already exists");
 
-    assert(!domains.member(disclose(domain)), "Domain already exists");
-    assert_is_owner();
+      // owner registers for free; anyone else pays
+      if (derive_public_key() == DOMAIN_OWNER[0]) {
+          // no payment required
+      } else {
+          assert(BUY_ENABLED, "buying domains is not enabled");
+          const d_len = disclose(len);
+          if (d_len <= 3) {
+              receiveUnshielded(COIN_COLOR, COST_SHORT);
+              sendUnshielded(COIN_COLOR, COST_SHORT, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
+          } else if (d_len == 4) {
+              receiveUnshielded(COIN_COLOR, COST_MED);
+              sendUnshielded(COIN_COLOR, COST_MED, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
+          } else {
+              receiveUnshielded(COIN_COLOR, COST_LONG);
+              sendUnshielded(COIN_COLOR, COST_LONG, right<ContractAddress, UserAddress>(DOMAIN_OWNER[1]));
+          }
+      }
 
-    const d_owner = disclose(owner);
-    const domain_data = DomainData {
-        d_owner,
-        disclose(resolver)
-    };
+      const d_owner = disclose(owner);
+      const domain_data = DomainData { d_owner, disclose(resolver) };
+      domains.insert(disclose(domain), disclose(domain_data));
 
-    domains.insert(disclose(domain), disclose(domain_data));
-
-    // Track domains owned by address
-    if (!domains_owned.member(d_owner)) {
-        domains_owned.insert(d_owner, default<Set<Bytes<32>>>);
-    }
-    domains_owned.lookup(d_owner).insert(disclose(domain));
+      if (!domains_owned.member(d_owner)) {
+          domains_owned.insert(d_owner, default<Set<Bytes<32>>>);
+      }
+      domains_owned.lookup(d_owner).insert(disclose(domain));
 }
 
 export circuit set_resolver(domain: Bytes<32>, resolver: ContractAddress): [] {
@@ -326,8 +277,8 @@ circuit assert_is_owner(): [] {
 
 }
 
-export circuit derive_public_key() : Bytes<32> {
-    return persistentHash<[Bytes<32>, Bytes<32>]>([disclose(secretKey()), kernel.self().bytes]);
+circuit derive_public_key() : Bytes<32> {
+    return persistentHash<Bytes<32>>(disclose(secretKey()));
 }
 
 
