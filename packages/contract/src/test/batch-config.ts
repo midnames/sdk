@@ -17,7 +17,7 @@ export interface DomainEntry {
 }
 
 export interface BatchDeployConfig {
-  network: "preview" | "preprod" | "standalone";
+  network: "preview" | "preprod" | "mainnet" | "standalone";
   tld?: string; // defaults to "night"
   tldContractAddress?: string; // join existing TLD instead of deploying
   walletSeed?: string; // hex seed override

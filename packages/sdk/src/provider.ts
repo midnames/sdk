@@ -22,6 +22,11 @@ export const NETWORK_REGISTRY: Record<string, NetworkConfig> = {
     indexerWsUrl: "wss://indexer.preprod.midnight.network/api/v3/graphql/ws",
     tldAddress: "c1df80d650eed27ea058d96a3b2db160d9da730e0ffd82fb5afe800e50a991eb",
   },
+  mainnet: {
+    indexerUrl: "https://indexer.mainnet.midnight.network/api/v3/graphql",
+    indexerWsUrl: "wss://indexer.mainnet.midnight.network/api/v3/graphql/ws",
+    tldAddress: "e417158718ea24c076011a065f715f925330ee9026ba2b22e7fc165677f2cc72",
+  },
 };
 
 export interface ProviderConfig {
@@ -42,7 +47,7 @@ export function getNetworkConfig(networkId: string): NetworkConfig {
 
 let defaultProvider: PublicDataProvider | null = null;
 
-export function getDefaultProvider(networkId: string = "preview"): PublicDataProvider {
+export function getDefaultProvider(networkId: string = "mainnet"): PublicDataProvider {
   if (!defaultProvider) {
     const net = getNetworkConfig(networkId);
     setNetworkId(networkId as any);
@@ -58,7 +63,7 @@ export function setDefaultProvider(provider: PublicDataProvider): void {
 export function createDefaultProvider(
   config: ProviderConfig = {}
 ): PublicDataProvider {
-  const networkId = config.networkId ?? "preview";
+  const networkId = config.networkId ?? "mainnet";
   const knownConfig = NETWORK_REGISTRY[networkId];
 
   const indexerUrl = config.indexerUrl ?? knownConfig?.indexerUrl;

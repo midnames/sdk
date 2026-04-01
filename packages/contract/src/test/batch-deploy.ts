@@ -108,6 +108,18 @@ function makePreprodConfig(): NetworkConfig {
   return cfg;
 }
 
+function makeMainnetConfig(): NetworkConfig {
+  const cfg = {
+    indexer: "https://midnight-proxy-mainnet-indexer.faculerena.workers.dev/api/v3/graphql",
+    indexerWS: "wss://midnight-proxy-mainnet-indexer.faculerena.workers.dev/api/v3/graphql/ws",
+    node: "wss://rpc.mainnet.midnight.foundation/v1/mk_b041adce419487067f9c85b5abacb632",
+    proofServer: "https://ps.midnames.com",
+    networkId: "mainnet",
+  };
+  setNetworkId(cfg.networkId);
+  return cfg;
+}
+
 function makeStandaloneConfig(): NetworkConfig {
   const cfg = {
     indexer: "http://127.0.0.1:8088/api/v3/graphql",
@@ -217,12 +229,6 @@ const waitForFunds = (wallet: WalletFacade) =>
         );
       }),
       Rx.filter((state) => state.isSynced),
-      Rx.map(
-        (s) =>
-          (s.unshielded?.balances[nativeToken().raw] ?? 0n) +
-          (s.shielded?.balances[nativeToken().raw] ?? 0n),
-      ),
-      Rx.filter((balance) => balance > 0n),
     ),
   );
 
@@ -758,7 +764,9 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
       ? makePreviewConfig()
       : config.network === "preprod"
         ? makePreprodConfig()
-        : makeStandaloneConfig();
+        : config.network === "mainnet"
+          ? makeMainnetConfig()
+          : makeStandaloneConfig();
 
   // Check services
   const servicesOk = await checkAllServices(networkConfig);

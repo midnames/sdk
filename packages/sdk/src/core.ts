@@ -17,6 +17,7 @@ import { getDefaultProvider, getNetworkConfig, NETWORK_REGISTRY } from "./provid
 
 export const TESTNET_TLD_ADDRESS = NETWORK_REGISTRY.preprod.tldAddress;
 export const PREVIEW_TLD_ADDRESS = NETWORK_REGISTRY.preview.tldAddress;
+export const MAINNET_TLD_ADDRESS = NETWORK_REGISTRY.mainnet.tldAddress;
 
 function getDefaultTldAddress(): string {
   const currentNetwork = getNetworkId();

@@ -14,15 +14,22 @@ describe("NETWORK_REGISTRY", () => {
     expect(cfg.indexerUrl).toContain("preprod.midnight.network");
     expect(cfg.tldAddress).toBeTruthy();
   });
+
+  it("has mainnet config", () => {
+    const cfg = NETWORK_REGISTRY.mainnet;
+    expect(cfg.indexerUrl).toContain("mainnet.midnight.network");
+    expect(cfg.indexerWsUrl).toContain("wss://");
+    expect(cfg.tldAddress).toBeTruthy();
+  });
 });
 
 describe("getNetworkConfig", () => {
   it("returns config for known network", () => {
-    const cfg = getNetworkConfig("preview");
-    expect(cfg).toBe(NETWORK_REGISTRY.preview);
+    const cfg = getNetworkConfig("mainnet");
+    expect(cfg).toBe(NETWORK_REGISTRY.mainnet);
   });
 
   it("throws for unknown network", () => {
-    expect(() => getNetworkConfig("mainnet")).toThrow(/Unknown network/);
+    expect(() => getNetworkConfig("foonet")).toThrow(/Unknown network/);
   });
 });
