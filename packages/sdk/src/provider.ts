@@ -25,7 +25,7 @@ export const NETWORK_REGISTRY: Record<string, NetworkConfig> = {
   mainnet: {
     indexerUrl: "https://indexer.mainnet.midnight.network/api/v3/graphql",
     indexerWsUrl: "wss://indexer.mainnet.midnight.network/api/v3/graphql/ws",
-    tldAddress: "e417158718ea24c076011a065f715f925330ee9026ba2b22e7fc165677f2cc72",
+    tldAddress: "0167c9ad2f166e717dd7b4a72606bf5cbba2fd462d5e1ca95e2d0452af288638",
   },
 };
 

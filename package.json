@@ -17,5 +17,8 @@
     "vitest": "^3.1.4"
   },
   "name": "",
-  "version": ""
+  "version": "",
+  "dependencies": {
+    "superjson": "^2.2.6"
+  }
 }

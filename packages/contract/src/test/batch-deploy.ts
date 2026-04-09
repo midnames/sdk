@@ -45,7 +45,8 @@ import { domainToKey } from "../utils.js";
 
 import * as Rx from "rxjs";
 import * as path from "node:path";
-import { webcrypto } from "crypto";
+import * as fs from "node:fs";
+import { webcrypto, createHash, randomBytes, createCipheriv } from "crypto";
 import { WebSocket } from "ws";
 import { Buffer } from "buffer";
 import { type Logger } from "pino";
@@ -112,7 +113,8 @@ function makeMainnetConfig(): NetworkConfig {
   const cfg = {
     indexer: "https://midnight-proxy-mainnet-indexer.faculerena.workers.dev/api/v3/graphql",
     indexerWS: "wss://midnight-proxy-mainnet-indexer.faculerena.workers.dev/api/v3/graphql/ws",
-    node: "wss://rpc.mainnet.midnight.foundation/v1/mk_b041adce419487067f9c85b5abacb632",
+    node: "wss://rpc.mainnet.midnight.network",
+    //node: "wss://rpc.mainnet.midnight.foundation/v1/mk_b041adce419487067f9c85b5abacb632",
     proofServer: "https://ps.midnames.com",
     networkId: "mainnet",
   };
@@ -132,9 +134,43 @@ function makeStandaloneConfig(): NetworkConfig {
   return cfg;
 }
 
+// ─── Wallet Cache ──────────────────────────────────────────────────────────
+const WALLET_CACHE_PATH = "/home/facundo/midnames/minting-server/.midnight-wallet-cache.json";
+
+interface WalletCache {
+  shielded: string;
+  unshielded: string;
+  dust: string;
+}
+
+function readWalletCache(): WalletCache | null {
+  try {
+    const raw = fs.readFileSync(WALLET_CACHE_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (parsed.shielded && parsed.unshielded && parsed.dust) {
+      return parsed as WalletCache;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeWalletCache(cache: WalletCache): void {
+  try {
+    fs.writeFileSync(WALLET_CACHE_PATH, JSON.stringify(cache), "utf-8");
+    logger.info("Wallet state cached");
+  } catch (e) {
+    logger.error(`Failed to write wallet cache: ${e}`);
+  }
+}
+
 // ─── Wallet Types & Helpers ─────────────────────────────────────────────────
 interface WalletContext {
   wallet: WalletFacade;
+  shieldedWallet: any;
+  unshieldedWallet: any;
+  dustWallet: any;
   shieldedSecretKeys: ledger.ZswapSecretKeys;
   dustSecretKey: ledger.DustSecretKey;
   unshieldedKeystore: UnshieldedKeystore;
@@ -357,24 +393,69 @@ const initWalletWithSeed = async (
     indexerUrl: config.indexerWS,
   };
 
+  const cache = readWalletCache();
+
+  let shieldedWallet: any;
+  let dustWallet: any;
+  let unshieldedWallet: any;
+
+  if (cache) {
+    logger.info("Restoring wallet from cached state...");
+  } else {
+    logger.info("No wallet cache found, starting fresh sync...");
+  }
+
   const facade = await WalletFacade.init({
     configuration: walletConfiguration,
-    shielded: (config) =>
-      ShieldedWallet(config).startWithSecretKeys(shieldedSecretKeys),
-    dust: (config) =>
-      DustWallet(config).startWithSecretKey(
+    shielded: (cfg: any) => {
+      if (cache) {
+        try {
+          shieldedWallet = ShieldedWallet(cfg).restore(cache.shielded);
+          return shieldedWallet;
+        } catch (e) {
+          logger.warn(`Failed to restore shielded wallet from cache: ${e}`);
+        }
+      }
+      shieldedWallet = ShieldedWallet(cfg).startWithSecretKeys(shieldedSecretKeys);
+      return shieldedWallet;
+    },
+    dust: (cfg: any) => {
+      if (cache) {
+        try {
+          dustWallet = DustWallet(cfg).restore(cache.dust);
+          return dustWallet;
+        } catch (e) {
+          logger.warn(`Failed to restore dust wallet from cache: ${e}`);
+        }
+      }
+      dustWallet = DustWallet(cfg).startWithSecretKey(
         dustSecretKey,
         ledger.LedgerParameters.initialParameters().dust,
-      ),
-    unshielded: (config) =>
-      UnshieldedWallet({
-        ...config,
+      );
+      return dustWallet;
+    },
+    unshielded: (cfg: any) => {
+      if (cache) {
+        try {
+          unshieldedWallet = UnshieldedWallet({
+            ...cfg,
+            txHistoryStorage: new InMemoryTransactionHistoryStorage(),
+          }).restore(cache.unshielded);
+          return unshieldedWallet;
+        } catch (e) {
+          logger.warn(`Failed to restore unshielded wallet from cache: ${e}`);
+        }
+      }
+      unshieldedWallet = UnshieldedWallet({
+        ...cfg,
         txHistoryStorage: new InMemoryTransactionHistoryStorage(),
-      }).startWithPublicKey(UnshieldedPublicKey.fromKeyStore(unshieldedKeystore)),
+      }).startWithPublicKey(UnshieldedPublicKey.fromKeyStore(unshieldedKeystore));
+      return unshieldedWallet;
+    },
   });
   await facade.start(shieldedSecretKeys, dustSecretKey);
 
-  return { wallet: facade, shieldedSecretKeys, dustSecretKey, unshieldedKeystore };
+  return { wallet: facade, shieldedWallet, unshieldedWallet, dustWallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore };
 };
 
 const buildWalletAndWaitForFunds = async (
@@ -459,8 +540,8 @@ const configureProviders = async (
 
   return {
     privateStateProvider: levelPrivateStateProvider<"namespacePrivateState">({
-      privateStoragePasswordProvider: () => "Batch-deploy-P4ssword!not-secret",
-      accountId: "batch-deploy",
+      privateStoragePasswordProvider: () => "Midnames-private-state-42",
+      accountId: walletContext.unshieldedKeystore.getBech32Address().asString(),
     }),
     publicDataProvider: indexerPublicDataProvider(
       config.indexer,
@@ -796,7 +877,10 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
       ),
     );
 
-    const secretKeyHex = Buffer.from(coinPublicKeyBytes).toString("hex");
+    const secretKeyHex = process.env.MIDNIGHT_SECRET_KEY;
+    if (!secretKeyHex) {
+      throw new Error("MIDNIGHT_SECRET_KEY env variable is required");
+    }
 
     // Track deployed contracts: domain -> contract
     const deployedContracts: Map<
@@ -812,7 +896,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         contractAddress: address,
         compiledContract: leafContractInstance as any,
         privateStateId: "namespacePrivateState",
-        initialPrivateState: { secretKey: Buffer.from(coinPublicKeyBytes).toString("hex") },
+        initialPrivateState: { secretKey: secretKeyHex },
       });
       deployedContracts.set(domain, found);
     }
@@ -830,7 +914,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         contractAddress: config.tldContractAddress,
         compiledContract: leafContractInstance as any,
         privateStateId: "namespacePrivateState",
-        initialPrivateState: { secretKey: Buffer.from(coinPublicKeyBytes).toString("hex") },
+        initialPrivateState: { secretKey: secretKeyHex },
       });
     } else {
       const tldSettings = resolveDomainSettings(undefined, config.defaults);
@@ -914,7 +998,72 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
 
     // Also output as JSON for scripting
     console.log(JSON.stringify(results, null, 2));
+
+    // Build frontend-compatible backup
+    const exportPassword = process.env.EXPORT_PASSWORD;
+    if (!exportPassword) {
+      throw new Error("EXPORT_PASSWORD env variable is required for private state export");
+    }
+    logger.info("\n=== Building Frontend Backup ===");
+
+    const psp = providers.privateStateProvider as any;
+    const tldAddr = rootContract.deployTxData.public.contractAddress;
+
+    // Compute derivedKey = sha256(secretKeyBytes) — matches Compact's persistentHash
+    const derivedKey = createHash("sha256").update(Buffer.from(secretKeyHex, "hex")).digest("hex");
+
+    // Encrypt the secret key for the export file
+    const { pbkdf2Sync } = await import("crypto");
+    const salt = randomBytes(16);
+    const iv = randomBytes(12);
+    const encKey = pbkdf2Sync(exportPassword, salt, 100_000, 32, "sha256");
+    const cipher = createCipheriv("aes-256-gcm", encKey, iv);
+    const encrypted = Buffer.concat([cipher.update(secretKeyHex, "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    const encryptedSecretKey = {
+      data: Buffer.concat([encrypted, authTag]).toString("hex"),
+      salt: salt.toString("hex"),
+      iv: iv.toString("hex"),
+    };
+
+    // Build key registry with encrypted secret key
+    const keyRegistry = [{
+      id: crypto.randomUUID(),
+      derivedKey,
+      label: "batch-deploy",
+      domains: Array.from(deployedContracts.keys()),
+      contractAddresses: Array.from(deployedContracts.values()).map(
+        (c) => c.deployTxData.public.contractAddress,
+      ),
+      createdAt: Date.now(),
+      encryptedSecretKey,
+    }];
+
+    // Export signing keys
+    psp.setContractAddress(tldAddr);
+    const signingKeys = await psp.exportSigningKeys({ password: exportPassword });
+    logger.info("Exported signing keys");
+
+    const exportData = {
+      keyRegistry,
+      signingKeys,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const exportPath = path.resolve("batch-deploy-private-state-export.json");
+    fs.writeFileSync(exportPath, JSON.stringify(exportData, null, 2), "utf-8");
+    logger.info(`Frontend backup written to: ${exportPath}`);
   } finally {
+    try {
+      logger.info("Serializing wallet state...");
+      const shielded = await walletContext.shieldedWallet.serializeState();
+      const unshielded = await walletContext.unshieldedWallet.serializeState();
+      const dust = await walletContext.dustWallet.serializeState();
+      writeWalletCache({ shielded, unshielded, dust });
+    } catch (e) {
+      logger.error(`Error saving wallet state: ${e}`);
+    }
+
     try {
       await walletContext.wallet.stop();
       logger.info("Wallet closed");
