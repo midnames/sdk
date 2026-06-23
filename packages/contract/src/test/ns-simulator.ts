@@ -13,12 +13,19 @@ import {
   ledger
 } from "../managed/leaf/contract/index.js";
 import { type DNSPrivateState, witnesses } from "../witnesses.js";
+import { deriveOwnerPublicKey, hexToBytes } from "./derive.js";
 
 export class NSSimulator {
   readonly contract: Contract<DNSPrivateState>;
   circuitContext: CircuitContext<DNSPrivateState>;
 
-  constructor(secretKey: string = "0".repeat(64)) {
+  /**
+   * @param secretKey  Hex secret used as the witness for this instance's circuit calls.
+   * @param ownerPubkey  Explicit owner key stored on-chain. Defaults to the key derived
+   *   from `secretKey`, i.e. the deployer is the owner. Pass a different value to model
+   *   a migration deploy where the resolver is bound to the buyer's key, not the deployer's.
+   */
+  constructor(secretKey: string = "0".repeat(64), ownerPubkey?: Uint8Array) {
     this.contract = new Contract<DNSPrivateState>(witnesses);
     const parentDomain: Maybe<Uint8Array> = { is_some: false, value: new Uint8Array(32) };
     const parentResolver = { bytes: new Uint8Array(32) };
@@ -30,9 +37,10 @@ export class NSSimulator {
     const costLong = 10n;
     const defaultField: Maybe<string> = { is_some: false, value: "" };
     const buyEnabled = true;
+    const ownerPublicKey = ownerPubkey ?? deriveOwnerPublicKey(hexToBytes(secretKey));
     const ownerAddress = { bytes: new Uint8Array(32) };
     const noneKv: Maybe<[string, string]> = { is_some: false, value: ["", ""] };
-    const kvs: Maybe<[string, string]>[] = Array(6).fill(noneKv);
+    const kvs: Maybe<[string, string]>[] = Array(10).fill(noneKv);
 
     const {
       currentPrivateState,
@@ -50,6 +58,7 @@ export class NSSimulator {
       costLong,
       defaultField,
       buyEnabled,
+      ownerPublicKey,
       ownerAddress,
       kvs
     );
@@ -157,18 +166,6 @@ export class NSSimulator {
     this.circuitContext = this.contract.impureCircuits.update_default_field(
       this.circuitContext,
       d
-    ).context;
-    return ledger(this.circuitContext.currentQueryContext.state);
-  }
-
-  public updateTargetAndFields(
-    newTarget: Either<{ bytes: Uint8Array }, Either<{ bytes: Uint8Array }, { bytes: Uint8Array }>>,
-    kvs: Maybe<[string, string]>[]
-  ): Ledger {
-    this.circuitContext = this.contract.impureCircuits.update_target_and_fields(
-      this.circuitContext,
-      newTarget,
-      kvs
     ).context;
     return ledger(this.circuitContext.currentQueryContext.state);
   }

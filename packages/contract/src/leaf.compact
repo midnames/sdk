@@ -71,8 +71,9 @@ constructor(
     cost_long: Uint<128>,
     default_field: Maybe<Opaque<'string'>>,
     buy_enabled: Boolean,
+    owner_pubkey: Bytes<32>,
     owner_address: UserAddress,
-    kvs: Vector<6, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
+    kvs: Vector<10, Maybe<[Opaque<'string'>, Opaque<'string'>]>>
 ) {
     const target_type = disclose(target[1]);
     if (target_type == AddressType.ContractAddr) {
@@ -83,7 +84,11 @@ constructor(
         DOMAIN_TARGET = right<ContractAddress, Either<ZswapCoinPublicKey, UserAddress>>(right<ZswapCoinPublicKey, UserAddress>(UserAddress { bytes: disclose(target[0]) })) ;
     }
 
-    DOMAIN_OWNER = [derive_public_key(), disclose(owner_address)];
+    // Owner is set explicitly (not derived from the deployer's secret key) so an admin
+    // can deploy a resolver bound to the buyer's existing key during migration, and the
+    // frontend can deploy on behalf of a buyer it generated a key for. The buyer keeps
+    // control because derive_public_key(their secret) == owner_pubkey (see below).
+    DOMAIN_OWNER = [disclose(owner_pubkey), disclose(owner_address)];
     PARENT_DOMAIN = disclose(parent_domain);
     PARENT_RESOLVER = disclose(parent_resolver);
     DOMAIN = disclose(domain);
@@ -277,8 +282,11 @@ circuit assert_is_owner(): [] {
 
 }
 
+// Matches the previous single-contract derivation so domain owners keep control
+// after migration: owner_pubkey stored on-chain == persistentHash([tag, secret]).
 circuit derive_public_key() : Bytes<32> {
-    return persistentHash<Bytes<32>>(disclose(secretKey()));
+    const tag = pad(32, "midnight.domains");
+    return disclose(persistentHash<[Bytes<32>, Bytes<32>]>([tag, secretKey()]));
 }
 
 

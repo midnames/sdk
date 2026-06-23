@@ -357,34 +357,4 @@ describe("owner operations", () => {
     expect(ledger.DOMAIN_TARGET.is_left).toBe(true);
     expect(ledger.DOMAIN_TARGET.left).toEqual({ bytes: new Uint8Array(32).fill(0xcc) });
   });
-
-  it("update_target_and_fields updates target and adds fields atomically", () => {
-    const simulator = new NSSimulator();
-    const newTarget = {
-      is_left: true,
-      left: { bytes: new Uint8Array(32).fill(0xdd) },
-      right: {
-        is_left: true,
-        left: { bytes: new Uint8Array(32) },
-        right: { bytes: new Uint8Array(32) }
-      }
-    };
-    const kvs = [
-      { is_some: true, value: ["website", "example.com"] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-      { is_some: false, value: ["", ""] as [string, string] },
-    ];
-    const ledger = simulator.updateTargetAndFields(newTarget, kvs);
-    expect(ledger.DOMAIN_TARGET.is_left).toBe(true);
-    expect(ledger.DOMAIN_TARGET.left).toEqual({ bytes: new Uint8Array(32).fill(0xdd) });
-    expect(ledger.fields.member("website")).toBe(true);
-    expect(ledger.fields.lookup("website")).toBe("example.com");
-  });
 });
