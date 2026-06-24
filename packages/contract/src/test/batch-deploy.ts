@@ -42,6 +42,7 @@ import {
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { Leaf, witnesses } from "../../dist";
 import { domainToKey } from "../utils.js";
+import { deriveOwnerPublicKey, hexToBytes } from "./derive.js";
 
 import * as Rx from "rxjs";
 import * as path from "node:path";
@@ -76,8 +77,12 @@ const logger: Logger = pino(
   }),
 );
 
+// Number of ledger updates applied per batch during wallet sync. Larger = much
+// faster catch-up when the wallet is far behind tip.
+const SYNC_BATCH_SIZE = 5000;
+
 // ─── Network Config ─────────────────────────────────────────────────────────
-interface NetworkConfig {
+export interface NetworkConfig {
   readonly indexer: string;
   readonly indexerWS: string;
   readonly node: string;
@@ -85,7 +90,7 @@ interface NetworkConfig {
   readonly networkId: string;
 }
 
-function makePreviewConfig(): NetworkConfig {
+export function makePreviewConfig(): NetworkConfig {
   const cfg = {
     indexer: "https://indexer.preview.midnight.network/api/v3/graphql",
     indexerWS: "wss://indexer.preview.midnight.network/api/v3/graphql/ws",
@@ -97,7 +102,7 @@ function makePreviewConfig(): NetworkConfig {
   return cfg;
 }
 
-function makePreprodConfig(): NetworkConfig {
+export function makePreprodConfig(): NetworkConfig {
   const cfg = {
     indexer: "https://indexer.preprod.midnight.network/api/v3/graphql",
     indexerWS: "wss://indexer.preprod.midnight.network/api/v3/graphql/ws",
@@ -109,7 +114,7 @@ function makePreprodConfig(): NetworkConfig {
   return cfg;
 }
 
-function makeMainnetConfig(): NetworkConfig {
+export function makeMainnetConfig(): NetworkConfig {
   const cfg = {
     indexer: "https://midnight-proxy-mainnet-indexer.faculerena.workers.dev/api/v3/graphql",
     indexerWS: "wss://midnight-proxy-mainnet-indexer.faculerena.workers.dev/api/v3/graphql/ws",
@@ -135,17 +140,25 @@ function makeStandaloneConfig(): NetworkConfig {
 }
 
 // ─── Wallet Cache ──────────────────────────────────────────────────────────
-const WALLET_CACHE_PATH = "/home/facundo/midnames/minting-server/.midnight-wallet-cache.json";
+// Caches are per-network so preprod/mainnet state never collide. Defaults to a local
+// gitignored dir — NOT the minting-server's wallet cache — so runs can't clobber it.
+// Override with WALLET_CACHE_DIR to reuse an existing cache.
+const WALLET_CACHE_DIR =
+  process.env.WALLET_CACHE_DIR ?? path.resolve(import.meta.dirname, "..", "..", ".wallet-cache");
 
-interface WalletCache {
+function walletCachePath(networkId: string): string {
+  return path.join(WALLET_CACHE_DIR, `.midnight-wallet-cache-${networkId}.json`);
+}
+
+export interface WalletCache {
   shielded: string;
   unshielded: string;
   dust: string;
 }
 
-function readWalletCache(): WalletCache | null {
+export function readWalletCache(networkId: string): WalletCache | null {
   try {
-    const raw = fs.readFileSync(WALLET_CACHE_PATH, "utf-8");
+    const raw = fs.readFileSync(walletCachePath(networkId), "utf-8");
     const parsed = JSON.parse(raw);
     if (parsed.shielded && parsed.unshielded && parsed.dust) {
       return parsed as WalletCache;
@@ -156,17 +169,33 @@ function readWalletCache(): WalletCache | null {
   }
 }
 
-function writeWalletCache(cache: WalletCache): void {
+export function writeWalletCache(networkId: string, cache: WalletCache): void {
   try {
-    fs.writeFileSync(WALLET_CACHE_PATH, JSON.stringify(cache), "utf-8");
-    logger.info("Wallet state cached");
+    fs.mkdirSync(WALLET_CACHE_DIR, { recursive: true });
+    fs.writeFileSync(walletCachePath(networkId), JSON.stringify(cache), "utf-8");
+    logger.info(`Wallet state cached (${networkId})`);
   } catch (e) {
     logger.error(`Failed to write wallet cache: ${e}`);
   }
 }
 
+/** Serialize all sub-wallets and persist them to the per-network cache. */
+export async function cacheWalletState(
+  networkId: string,
+  ctx: WalletContext,
+): Promise<void> {
+  try {
+    const shielded = await ctx.shieldedWallet.serializeState();
+    const unshielded = await ctx.unshieldedWallet.serializeState();
+    const dust = await ctx.dustWallet.serializeState();
+    writeWalletCache(networkId, { shielded, unshielded, dust });
+  } catch (e) {
+    logger.error(`Error saving wallet state: ${e}`);
+  }
+}
+
 // ─── Wallet Types & Helpers ─────────────────────────────────────────────────
-interface WalletContext {
+export interface WalletContext {
   wallet: WalletFacade;
   shieldedWallet: any;
   unshieldedWallet: any;
@@ -195,7 +224,7 @@ const contractConfig = {
   ),
 };
 
-const leafContractInstance = CompiledContract.make(
+export const leafContractInstance = CompiledContract.make(
   "leaf-contract",
   Leaf.Contract,
 ).pipe(
@@ -204,7 +233,7 @@ const leafContractInstance = CompiledContract.make(
 );
 
 // ─── Address Parsing ────────────────────────────────────────────────────────
-function parseContractAddress(address: string): { bytes: Uint8Array } {
+export function parseContractAddress(address: string): { bytes: Uint8Array } {
   let hexString: string;
   if (address.startsWith("0200")) {
     hexString = address.slice(4);
@@ -217,7 +246,7 @@ function parseContractAddress(address: string): { bytes: Uint8Array } {
   return { bytes: bytes.length === 32 ? bytes : bytes.subarray(-32) };
 }
 
-const ZERO_ADDR =
+export const ZERO_ADDR =
   "0000000000000000000000000000000000000000000000000000000000000000";
 
 async function mnemonicToHexSeed(mnemonic: string): Promise<string> {
@@ -228,7 +257,7 @@ async function mnemonicToHexSeed(mnemonic: string): Promise<string> {
   return Buffer.from(seed).toString("hex");
 }
 
-async function resolveSeed(configSeed?: string): Promise<string> {
+export async function resolveSeed(configSeed?: string): Promise<string> {
   const raw = configSeed ?? process.env.SEED;
   if (!raw) {
     throw new Error("No seed provided — set SEED in .env or walletSeed in config");
@@ -242,16 +271,104 @@ async function resolveSeed(configSeed?: string): Promise<string> {
 }
 
 // ─── Wallet Lifecycle ───────────────────────────────────────────────────────
-const waitForSync = (wallet: WalletFacade) =>
+// Derive a sync percent + a robust "really synced" flag from per-wallet progress
+// (mirrors gsd-wallet: facade.isSynced can lag the actual applied indices).
+interface SyncStatus {
+  percent: number;
+  reallySynced: boolean;
+  allConnected: boolean;
+  shieldedSynced: boolean;
+  unshieldedSynced: boolean;
+  dustSynced: boolean;
+}
+
+function syncStatus(state: any): SyncStatus {
+  const sp = state?.shielded?.progress;
+  const up = state?.unshielded?.progress;
+  const dp = state?.dust?.progress;
+  if (!sp || !up || !dp) {
+    return {
+      percent: 0,
+      reallySynced: !!state?.isSynced,
+      allConnected: false,
+      shieldedSynced: false,
+      unshieldedSynced: false,
+      dustSynced: false,
+    };
+  }
+  const n = (x: any) => Number(x ?? 0);
+  const shieldedSynced = sp.isConnected
+    ? (n(sp.highestRelevantWalletIndex) === 0 ? n(sp.highestIndex) === 0 : n(sp.appliedIndex) >= n(sp.highestRelevantWalletIndex))
+    : false;
+  const unshieldedSynced = up.isConnected
+    ? (n(up.highestTransactionId) === 0 || n(up.appliedId) >= n(up.highestTransactionId))
+    : false;
+  const dustSynced = dp.isConnected
+    ? (n(dp.highestRelevantWalletIndex) === 0 ? n(dp.highestIndex) === 0 : n(dp.appliedIndex) >= n(dp.highestRelevantWalletIndex))
+    : false;
+  const allConnected = sp.isConnected && up.isConnected && dp.isConnected;
+  const totalApplied = n(sp.appliedIndex) + n(up.appliedId) + n(dp.appliedIndex);
+  const totalHighest = n(sp.highestRelevantWalletIndex) + n(up.highestTransactionId) + n(dp.highestRelevantWalletIndex);
+  const percent = totalHighest > 0 ? Math.min(100, Math.floor((totalApplied / totalHighest) * 100)) : (allConnected ? 100 : 0);
+  const reallySynced = !!state.isSynced || (allConnected && shieldedSynced && unshieldedSynced && dustSynced);
+  return { percent, reallySynced, allConnected, shieldedSynced, unshieldedSynced, dustSynced };
+}
+
+// "Ready to transact" — full sync normally, or (with SKIP_SHIELDED_SYNC) once unshielded AND
+// dust are fully synced (we can skip the unneeded shielded note-scan, but spending dust for fees
+// needs the COMPLETE dust state — a partial dust sync produces an invalid spend → node error 170).
+function syncGatePassed(state: any): boolean {
+  const s = syncStatus(state);
+  if (process.env.SKIP_SHIELDED_SYNC !== "1") return s.reallySynced;
+  return s.allConnected && s.unshieldedSynced && s.dustSynced;
+}
+
+export const waitForSync = (wallet: WalletFacade) =>
   Rx.firstValueFrom(
     wallet.state().pipe(
       Rx.throttleTime(5_000),
       Rx.tap((state) => {
-        logger.info(`Waiting for wallet sync. Synced: ${state.isSynced}`);
+        const { percent, reallySynced } = syncStatus(state);
+        logger.info(`Waiting for wallet sync. ${percent}% (synced=${reallySynced})`);
       }),
-      Rx.filter((state) => state.isSynced),
+      Rx.filter((state) => syncGatePassed(state)),
     ),
   );
+
+/**
+ * Initial-sync wait that logs real progress and checkpoints every ~11s, so a crash
+ * mid-sync resumes near tip instead of replaying the whole chain (mirrors gsd-wallet).
+ */
+export async function syncWithCheckpoints(ctx: WalletContext, networkId: string): Promise<void> {
+  // The shielded note-scan dominates a far-behind sync. Our deploys pay fees in dust and
+  // registrations under the admin TLD are free, so no shielded value is ever spent — set
+  // SKIP_SHIELDED_SYNC=1 to proceed once unshielded+dust are synced instead of waiting it out.
+  // SKIP_SHIELDED_SYNC: the shielded note-scan is unneeded (deploys pay fees in dust, registrations
+  // under the admin TLD are free). On a CLEAN sync the dust balance is correct from the first blocks,
+  // so proceed as soon as unshielded is synced and there's spendable dust — no need to wait out the
+  // full dust scan. (A stale checkpoint can report a false 0 dust; always clean-sync when in doubt.)
+  const skipShielded = process.env.SKIP_SHIELDED_SYNC === "1";
+  let lastCheckpoint = Date.now();
+  for (;;) {
+    const state = await Rx.firstValueFrom(ctx.wallet.state());
+    const s = syncStatus(state);
+    let dustBal = 0n;
+    try { dustBal = state.dust.balance(new Date()); } catch { /* not ready yet */ }
+    const done = syncGatePassed(state);
+    logger.info(
+      `Wallet sync ${s.percent}% (synced=${s.reallySynced}` +
+        (skipShielded ? `, gate=unshielded+dust u=${s.unshieldedSynced} d=${s.dustSynced} dustBal=${dustBal}` : "") +
+        `)`,
+    );
+    if (done) break;
+    if (Date.now() - lastCheckpoint >= 11_000) {
+      lastCheckpoint = Date.now();
+      await cacheWalletState(networkId, ctx);
+    }
+    await new Promise((r) => setTimeout(r, 5_000));
+  }
+  await cacheWalletState(networkId, ctx);
+}
 
 const waitForFunds = (wallet: WalletFacade) =>
   Rx.firstValueFrom(
@@ -268,7 +385,7 @@ const waitForFunds = (wallet: WalletFacade) =>
     ),
   );
 
-const displayWalletBalances = async (
+export const displayWalletBalances = async (
   wallet: WalletFacade,
 ): Promise<{ unshielded: bigint; shielded: bigint; total: bigint }> => {
   const state = await Rx.firstValueFrom(wallet.state());
@@ -279,11 +396,11 @@ const displayWalletBalances = async (
   return { unshielded, shielded, total };
 };
 
-const registerNightForDust = async (
+export const registerNightForDust = async (
   walletContext: WalletContext,
 ): Promise<boolean> => {
   const state = await Rx.firstValueFrom(
-    walletContext.wallet.state().pipe(Rx.filter((s) => s.isSynced)),
+    walletContext.wallet.state().pipe(Rx.filter((s) => syncGatePassed(s))),
   );
 
   const unregisteredNightUtxos =
@@ -391,9 +508,12 @@ const initWalletWithSeed = async (
       indexerWsUrl: config.indexerWS,
     },
     indexerUrl: config.indexerWS,
+    // Apply ledger updates in large batches — without this the wallet applies blocks
+    // far slower and a months-behind sync can take hours (mirrors gsd-wallet).
+    batchUpdates: { size: SYNC_BATCH_SIZE },
   };
 
-  const cache = readWalletCache();
+  const cache = readWalletCache(config.networkId);
 
   let shieldedWallet: any;
   let dustWallet: any;
@@ -458,7 +578,7 @@ const initWalletWithSeed = async (
   return { wallet: facade, shieldedWallet, unshieldedWallet, dustWallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore };
 };
 
-const buildWalletAndWaitForFunds = async (
+export const buildWalletAndWaitForFunds = async (
   config: NetworkConfig,
   hexSeed: string,
 ): Promise<WalletContext> => {
@@ -471,7 +591,7 @@ const buildWalletAndWaitForFunds = async (
   );
 
   logger.info("Waiting for wallet to sync...");
-  await waitForSync(walletContext.wallet);
+  await syncWithCheckpoints(walletContext, config.networkId);
 
   const { total } = await displayWalletBalances(walletContext.wallet);
   if (total === 0n) {
@@ -492,7 +612,7 @@ const createWalletAndMidnightProvider = async (
   walletContext: WalletContext,
 ): Promise<WalletProvider & MidnightProvider> => {
   await Rx.firstValueFrom(
-    walletContext.wallet.state().pipe(Rx.filter((s) => s.isSynced)),
+    walletContext.wallet.state().pipe(Rx.filter((s) => syncGatePassed(s))),
   );
 
   return {
@@ -528,7 +648,7 @@ const createWalletAndMidnightProvider = async (
   };
 };
 
-const configureProviders = async (
+export const configureProviders = async (
   walletContext: WalletContext,
   config: NetworkConfig,
 ) => {
@@ -555,7 +675,7 @@ const configureProviders = async (
 };
 
 // ─── Contract Deployment ────────────────────────────────────────────────────
-const DEFAULT_DOMAIN_SETTINGS: Required<DomainSettings> = {
+export const DEFAULT_DOMAIN_SETTINGS: Required<DomainSettings> = {
   coinColor: nativeToken().raw.toString().replace("0x", ""),
   costs: { short: 100n, medium: 10n, long: 1n },
   buyEnabled: true,
@@ -576,16 +696,19 @@ function resolveDomainSettings(
   };
 }
 
-async function deployLeafContract(
+export async function deployLeafContract(
   providers: ContractProviders,
   parentDomain: string | null,
   parentResolver: string,
   targetBytes: Uint8Array,
+  ownerPubkey: Uint8Array,
   ownerAddress: Uint8Array,
   secretKey: string,
   domain: string | null,
   initialFields: Array<[string, string]> = [],
   settings: Required<DomainSettings> = DEFAULT_DOMAIN_SETTINGS,
+  targetType: Leaf.AddressType = Leaf.AddressType.ZswapCPKAddr,
+  defaultField: string | null = null,
 ) {
   logger.info(`Deploying leaf contract for domain: ${domain || "root"}`);
   logger.info(`  coinColor: ${settings.coinColor}`);
@@ -594,10 +717,10 @@ async function deployLeafContract(
 
   // Build kvs parameter: Vector<10, Maybe<[string, string]>>
   const kvs: Array<{ is_some: boolean; value: [string, string] }> = [];
-  for (const [key, value] of initialFields.slice(0, 6)) {
+  for (const [key, value] of initialFields.slice(0, 10)) {
     kvs.push({ is_some: true, value: [key, value] });
   }
-  while (kvs.length < 6) {
+  while (kvs.length < 10) {
     kvs.push({ is_some: false, value: ["", ""] });
   }
 
@@ -610,14 +733,15 @@ async function deployLeafContract(
         ? { is_some: true, value: domainToKey(parentDomain).key }
         : { is_some: false, value: new Uint8Array(32) },
       parseContractAddress(parentResolver),
-      [targetBytes, Leaf.AddressType.ZswapCPKAddr],
+      [targetBytes, targetType],
       domain ? { is_some: true, value: domainToKey(domain).key } : { is_some: false, value: new Uint8Array(32) },
       new Uint8Array(Buffer.from(settings.coinColor, "hex")),
       settings.costs.short,
       settings.costs.medium,
       settings.costs.long,
-      { is_some: false, value: "" }, // DEFAULT_FIELD
+      defaultField !== null ? { is_some: true, value: defaultField } : { is_some: false, value: "" },
       settings.buyEnabled,
+      ownerPubkey,
       { bytes: ownerAddress },
       kvs,
     ],
@@ -629,7 +753,26 @@ async function deployLeafContract(
   return deployedContract;
 }
 
-async function buyDomainFor(
+/** Prove + balance + submit a single circuit call on an already-deployed leaf contract. */
+export async function callLeafCircuit(
+  contractAddress: string,
+  circuitId: string,
+  args: any[],
+  providers: ContractProviders,
+): Promise<string> {
+  const unprovenCallTxData = await createUnprovenCallTx(providers, {
+    compiledContract: leafContractInstance as any,
+    circuitId,
+    contractAddress,
+    args,
+    privateStateId: "namespacePrivateState",
+  });
+  const provedTx = await providers.proofProvider.proveTx(unprovenCallTxData.private.unprovenTx);
+  const finalizedTx = await providers.walletProvider.balanceTx(provedTx);
+  return await providers.midnightProvider.submitTx(finalizedTx);
+}
+
+export async function buyDomainFor(
   contract:
     | FoundContract<any>
     | DeployedContract<any>,
@@ -881,6 +1024,8 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
     if (!secretKeyHex) {
       throw new Error("MIDNIGHT_SECRET_KEY env variable is required");
     }
+    // In a plain batch deploy the deployer owns every domain it creates.
+    const ownerDerivedKey = deriveOwnerPublicKey(hexToBytes(secretKeyHex));
 
     // Track deployed contracts: domain -> contract
     const deployedContracts: Map<
@@ -923,6 +1068,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         null,
         "0x" + ZERO_ADDR,
         coinPublicKeyBytes,
+        ownerDerivedKey,
         ownerAddressBytes,
         secretKeyHex,
         tld,
@@ -964,6 +1110,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
         parentDomainPath,
         parentContract.deployTxData.public.contractAddress,
         coinPublicKeyBytes,
+        ownerDerivedKey,
         ownerAddressBytes,
         secretKeyHex,
         domainName,
@@ -980,7 +1127,7 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
 
       await buyDomainFor(
         parentContract,
-        coinPublicKeyBytes,
+        ownerDerivedKey,
         domainName,
         domainContract.deployTxData.public.contractAddress,
         providers,
@@ -1054,15 +1201,8 @@ async function batchDeploy(config: BatchDeployConfig): Promise<void> {
     fs.writeFileSync(exportPath, JSON.stringify(exportData, null, 2), "utf-8");
     logger.info(`Frontend backup written to: ${exportPath}`);
   } finally {
-    try {
-      logger.info("Serializing wallet state...");
-      const shielded = await walletContext.shieldedWallet.serializeState();
-      const unshielded = await walletContext.unshieldedWallet.serializeState();
-      const dust = await walletContext.dustWallet.serializeState();
-      writeWalletCache({ shielded, unshielded, dust });
-    } catch (e) {
-      logger.error(`Error saving wallet state: ${e}`);
-    }
+    logger.info("Serializing wallet state...");
+    await cacheWalletState(networkConfig.networkId, walletContext);
 
     try {
       await walletContext.wallet.stop();

@@ -7,3 +7,5 @@ reports/
 *.tsbuildinfo
 managed/
 example-deploy.config.ts
+# local wallet sync cache (per-network); never the minting-server
+.wallet-cache/
