@@ -33,11 +33,14 @@ import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
 import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
 import {
   createKeystore,
-  InMemoryTransactionHistoryStorage,
   PublicKey as UnshieldedPublicKey,
   type UnshieldedKeystore,
   UnshieldedWallet,
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import {
+  InMemoryTransactionHistoryStorage,
+  TransactionHistoryStorage,
+} from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 import { CompiledContract } from "@midnight-ntwrk/compact-js";
 import { Leaf, witnesses } from "../../dist";
@@ -511,6 +514,11 @@ const initWalletWithSeed = async (
     // Apply ledger updates in large batches — without this the wallet applies blocks
     // far slower and a months-behind sync can take hours (mirrors gsd-wallet).
     batchUpdates: { size: SYNC_BATCH_SIZE },
+    // Required by shielded, unshielded and dust alike; every wallet writes its own section
+    // into the same entry (keyed by tx hash), so they all share one store.
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
   };
 
   const cache = readWalletCache(config.networkId);
@@ -557,19 +565,15 @@ const initWalletWithSeed = async (
     unshielded: (cfg: any) => {
       if (cache) {
         try {
-          unshieldedWallet = UnshieldedWallet({
-            ...cfg,
-            txHistoryStorage: new InMemoryTransactionHistoryStorage(),
-          }).restore(cache.unshielded);
+          unshieldedWallet = UnshieldedWallet(cfg).restore(cache.unshielded);
           return unshieldedWallet;
         } catch (e) {
           logger.warn(`Failed to restore unshielded wallet from cache: ${e}`);
         }
       }
-      unshieldedWallet = UnshieldedWallet({
-        ...cfg,
-        txHistoryStorage: new InMemoryTransactionHistoryStorage(),
-      }).startWithPublicKey(UnshieldedPublicKey.fromKeyStore(unshieldedKeystore));
+      unshieldedWallet = UnshieldedWallet(cfg).startWithPublicKey(
+        UnshieldedPublicKey.fromKeyStore(unshieldedKeystore),
+      );
       return unshieldedWallet;
     },
   });

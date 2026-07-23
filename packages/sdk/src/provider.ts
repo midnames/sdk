@@ -15,12 +15,12 @@ export const NETWORK_REGISTRY: Record<string, NetworkConfig> = {
   preview: {
     indexerUrl: "https://indexer.preview.midnight.network/api/v3/graphql",
     indexerWsUrl: "wss://indexer.preview.midnight.network/api/v3/graphql/ws",
-    tldAddress: "daa9fc4dfbd42ac9227f8b4358928532da68337689ea3b21b351d607890d9192",
+    tldAddress: "e2655a6d554d5d3ceb03dfbee517ad4186d6c287c5e638a29258320dde3e0ba7",
   },
   preprod: {
     indexerUrl: "https://indexer.preprod.midnight.network/api/v3/graphql",
     indexerWsUrl: "wss://indexer.preprod.midnight.network/api/v3/graphql/ws",
-    tldAddress: "c1df80d650eed27ea058d96a3b2db160d9da730e0ffd82fb5afe800e50a991eb",
+    tldAddress: "43b500cadaa57d174d82cd6fd596002e33e3e680d7cf8bd7ba3383f62ceb0749",
   },
   mainnet: {
     indexerUrl: "https://indexer.mainnet.midnight.network/api/v3/graphql",

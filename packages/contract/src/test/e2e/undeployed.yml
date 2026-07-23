@@ -1,12 +1,12 @@
 services:
   proof-server:
-    image: 'midnightntwrk/proof-server:8.0.3'
+    image: 'midnightntwrk/proof-server:8.1.0'
     container_name: "proof-server-e2e"
     ports:
       - "6300:6300"
 
   indexer:
-    image: 'midnightntwrk/indexer-standalone:4.0.0'
+    image: 'midnightntwrk/indexer-standalone:4.3.3'
     container_name: "indexer-e2e"
     ports:
       - '8088:8088'
@@ -29,7 +29,7 @@ services:
         condition: service_started
 
   node:
-    image: 'midnightntwrk/midnight-node:0.22.1'
+    image: 'midnightntwrk/midnight-node:1.0.1'
     container_name: "node-e2e"
     ports:
       - "9944:9944"

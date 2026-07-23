@@ -17,11 +17,14 @@ import { ShieldedWallet } from "@midnight-ntwrk/wallet-sdk-shielded";
 import { DustWallet } from "@midnight-ntwrk/wallet-sdk-dust-wallet";
 import {
   createKeystore,
-  InMemoryTransactionHistoryStorage,
   PublicKey as UnshieldedPublicKey,
   type UnshieldedKeystore,
   UnshieldedWallet,
 } from "@midnight-ntwrk/wallet-sdk-unshielded-wallet";
+import {
+  InMemoryTransactionHistoryStorage,
+  TransactionHistoryStorage,
+} from "@midnight-ntwrk/wallet-sdk-abstractions";
 
 import * as Rx from "rxjs";
 import * as path from "node:path";
@@ -214,6 +217,8 @@ async function initWalletWithSeed(
     config.networkId,
   );
 
+  // Every wallet writes its own section into the same entry (keyed by tx hash), so shielded,
+  // unshielded, dust and the facade all share one store.
   const baseConfiguration = {
     networkId: config.networkId,
     costParameters: {
@@ -224,6 +229,9 @@ async function initWalletWithSeed(
       indexerHttpUrl: config.indexer,
       indexerWsUrl: config.indexerWS,
     },
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(
+      TransactionHistoryStorage.TransactionHistoryCommonSchema,
+    ),
   };
 
   const shieldedWallet = ShieldedWallet(baseConfiguration).startWithSecretKeys(
@@ -233,17 +241,15 @@ async function initWalletWithSeed(
     dustSecretKey,
     ledger.LedgerParameters.initialParameters().dust,
   );
-  const unshieldedWallet = UnshieldedWallet({
-    ...baseConfiguration,
-    txHistoryStorage: new InMemoryTransactionHistoryStorage(),
-  }).startWithPublicKey(UnshieldedPublicKey.fromKeyStore(unshieldedKeystore));
+  const unshieldedWallet = UnshieldedWallet(
+    baseConfiguration,
+  ).startWithPublicKey(UnshieldedPublicKey.fromKeyStore(unshieldedKeystore));
 
   const wallet = await WalletFacade.init({
     configuration: {
       ...baseConfiguration,
       relayURL: new URL(config.node),
       provingServerUrl: new URL(config.proofServer),
-      txHistoryStorage: new InMemoryTransactionHistoryStorage(),
     },
     shielded: async () => shieldedWallet,
     unshielded: async () => unshieldedWallet,

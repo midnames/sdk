@@ -8,15 +8,15 @@ import { StorageEncryption } from "@midnight-ntwrk/midnight-js-level-private-sta
 import * as fs from "node:fs";
 import { Buffer } from "buffer";
 
-function decryptPayload(encryptedPayload: string, saltHex: string, password: string): any {
+async function decryptPayload(encryptedPayload: string, saltHex: string, password: string): Promise<any> {
   const salt = Buffer.from(saltHex, "hex");
-  const enc = new StorageEncryption(password, salt);
-  return JSON.parse(enc.decrypt(encryptedPayload));
+  const enc = await StorageEncryption.create(password, { existingSalt: salt });
+  return JSON.parse(await enc.decrypt(encryptedPayload));
 }
 
-function encryptPayload(payload: any, password: string) {
-  const enc = new StorageEncryption(password);
-  const encryptedPayload = enc.encrypt(JSON.stringify(payload));
+async function encryptPayload(payload: any, password: string) {
+  const enc = await StorageEncryption.create(password);
+  const encryptedPayload = await enc.encrypt(JSON.stringify(payload));
   const salt = enc.getSalt().toString("hex");
   return { encryptedPayload, salt };
 }
@@ -36,7 +36,7 @@ const mergedStates: Record<string, string> = {};
 for (const [domain, entry] of Object.entries<any>(backup.privateStates)) {
   const contractAddress = entry.contractAddress;
   const ps = entry.privateState;
-  const decrypted = decryptPayload(ps.encryptedPayload, ps.salt, oldPassword);
+  const decrypted = await decryptPayload(ps.encryptedPayload, ps.salt, oldPassword);
   // decrypted.states has raw state IDs (e.g. "namespacePrivateState") — scope them with contract address
   for (const [stateId, value] of Object.entries<string>(decrypted.states)) {
     mergedStates[`${contractAddress}:${stateId}`] = value;
@@ -52,12 +52,12 @@ const mergedPayload = {
 };
 
 console.log("Re-encrypting merged private states...");
-const newPrivateStates = encryptPayload(mergedPayload, newPassword);
+const newPrivateStates = await encryptPayload(mergedPayload, newPassword);
 
 // Signing keys: just re-encrypt as-is
 console.log("Re-encrypting signing keys...");
-const skDecrypted = decryptPayload(backup.signingKeys.encryptedPayload, backup.signingKeys.salt, oldPassword);
-const newSigningKeys = encryptPayload(skDecrypted, newPassword);
+const skDecrypted = await decryptPayload(backup.signingKeys.encryptedPayload, backup.signingKeys.salt, oldPassword);
+const newSigningKeys = await encryptPayload(skDecrypted, newPassword);
 
 const output = {
   privateStates: {

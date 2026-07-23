@@ -87,11 +87,11 @@
   },
   "dependencies": {
     "@midnames/ns": "0.1.0",
-    "@midnight-ntwrk/compact-runtime": "0.15.0",
-    "@midnight-ntwrk/ledger-v8": "^8.0.3",
-    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
-    "@midnight-ntwrk/midnight-js-network-id": "4.0.2",
-    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0"
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.2"
   },
   "bundledDependencies": [
     "@midnames/ns"
@@ -124,9 +124,9 @@
   "license": "MIT",
   "author": "Midnames",
   "devDependencies": {
-    "@midnight-ntwrk/compact-js": "2.5.0",
-    "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
-    "@midnight-ntwrk/midnight-js-types": "4.0.2",
+    "@midnight-ntwrk/compact-js": "2.5.1",
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "lucide-react": "0.577.0",
